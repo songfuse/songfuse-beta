@@ -1,0 +1,497 @@
+OpenAI recommended songs: [
+  {
+    "title": "Smells Like Teen Spirit",
+    "artist": "Nirvana",
+    "genre": "Grunge"
+  },
+  {
+    "title": "Wannabe",
+    "artist": "Spice Girls",
+    "genre": "Pop"
+  },
+  {
+    "title": "Wonderwall",
+    "artist": "Oasis",
+    "genre": "Britpop"
+  },
+  {
+    "title": "I Want It That Way",
+    "artist": "Backstreet Boys",
+    "genre": "Pop"
+  },
+  {
+    "title": "No Scrubs",
+    "artist": "TLC",
+    "genre": "R&B"
+  },
+  {
+    "title": "My Heart Will Go On",
+    "artist": "Celine Dion",
+    "genre": "Pop"
+  },
+  {
+    "title": "Enter Sandman",
+    "artist": "Metallica",
+    "genre": "Metal"
+  },
+  {
+    "title": "Creep",
+    "artist": "Radiohead",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "...Baby One More Time",
+    "artist": "Britney Spears",
+    "genre": "Pop"
+  },
+  {
+    "title": "Losing My Religion",
+    "artist": "R.E.M.",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "I Will Always Love You",
+    "artist": "Whitney Houston",
+    "genre": "R&B"
+  },
+  {
+    "title": "Gangsta's Paradise",
+    "artist": "Coolio",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Macarena (Bayside Boys Remix)",
+    "artist": "Los Del Rio",
+    "genre": "Dance"
+  },
+  {
+    "title": "Bitter Sweet Symphony",
+    "artist": "The Verve",
+    "genre": "Britpop"
+  },
+  {
+    "title": "Black Hole Sun",
+    "artist": "Soundgarden",
+    "genre": "Grunge"
+  },
+  {
+    "title": "Killing Me Softly with His Song",
+    "artist": "Fugees",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Torn",
+    "artist": "Natalie Imbruglia",
+    "genre": "Pop"
+  },
+  {
+    "title": "Livin' la Vida Loca",
+    "artist": "Ricky Martin",
+    "genre": "Pop"
+  },
+  {
+    "title": "Ice Ice Baby",
+    "artist": "Vanilla Ice",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Iris",
+    "artist": "Goo Goo Dolls",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "MMMBop",
+    "artist": "Hanson",
+    "genre": "Pop"
+  },
+  {
+    "title": "Waterfalls",
+    "artist": "TLC",
+    "genre": "R&B"
+  },
+  {
+    "title": "Candle in the Wind 1997",
+    "artist": "Elton John",
+    "genre": "Pop"
+  },
+  {
+    "title": "Say My Name",
+    "artist": "Destiny's Child",
+    "genre": "R&B"
+  },
+  {
+    "title": "Jump Around",
+    "artist": "House of Pain",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Tears in Heaven",
+    "artist": "Eric Clapton",
+    "genre": "Rock"
+  },
+  {
+    "title": "Baby Got Back",
+    "artist": "Sir Mix-a-Lot",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Under the Bridge",
+    "artist": "Red Hot Chili Peppers",
+    "genre": "Rock"
+  },
+  {
+    "title": "You Oughta Know",
+    "artist": "Alanis Morissette",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "Nuthin' but a 'G' Thang",
+    "artist": "Dr. Dre ft. Snoop Dogg",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Don't Speak",
+    "artist": "No Doubt",
+    "genre": "Rock"
+  },
+  {
+    "title": "Genie in a Bottle",
+    "artist": "Christina Aguilera",
+    "genre": "Pop"
+  },
+  {
+    "title": "November Rain",
+    "artist": "Guns N' Roses",
+    "genre": "Rock"
+  },
+  {
+    "title": "The Boy Is Mine",
+    "artist": "Brandy & Monica",
+    "genre": "R&B"
+  },
+  {
+    "title": "Basket Case",
+    "artist": "Green Day",
+    "genre": "Punk Rock"
+  },
+  {
+    "title": "Unfinished Sympathy",
+    "artist": "Massive Attack",
+    "genre": "Trip Hop"
+  },
+  {
+    "title": "Linger",
+    "artist": "The Cranberries",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "California Love",
+    "artist": "2Pac ft. Dr. Dre",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Hold On",
+    "artist": "Wilson Phillips",
+    "genre": "Pop"
+  },
+  {
+    "title": "Two Princes",
+    "artist": "Spin Doctors",
+    "genre": "Rock"
+  },
+  {
+    "title": "All Star",
+    "artist": "Smash Mouth",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "Return of the Mack",
+    "artist": "Mark Morrison",
+    "genre": "R&B"
+  },
+  {
+    "title": "Zombie",
+    "artist": "The Cranberries",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "Semi-Charmed Life",
+    "artist": "Third Eye Blind",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "Vogue",
+    "artist": "Madonna",
+    "genre": "Pop"
+  },
+  {
+    "title": "I'm Gonna Be (500 Miles)",
+    "artist": "The Proclaimers",
+    "genre": "Pop"
+  },
+  {
+    "title": "One Sweet Day",
+    "artist": "Mariah Carey & Boyz II Men",
+    "genre": "R&B"
+  },
+  {
+    "title": "Heart-Shaped Box",
+    "artist": "Nirvana",
+    "genre": "Grunge"
+  },
+  {
+    "title": "Ironic",
+    "artist": "Alanis Morissette",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "Virtual Insanity",
+    "artist": "Jamiroquai",
+    "genre": "Funk"
+  },
+  {
+    "title": "Regulate",
+    "artist": "Warren G ft. Nate Dogg",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Wannabe",
+    "artist": "Spice Girls",
+    "genre": "Pop"
+  },
+  {
+    "title": "La Copa de la Vida",
+    "artist": "Ricky Martin",
+    "genre": "Latin Pop"
+  },
+  {
+    "title": "Achy Breaky Heart",
+    "artist": "Billy Ray Cyrus",
+    "genre": "Country"
+  },
+  {
+    "title": "No Diggity",
+    "artist": "Blackstreet ft. Dr. Dre",
+    "genre": "R&B"
+  },
+  {
+    "title": "Jeremy",
+    "artist": "Pearl Jam",
+    "genre": "Grunge"
+  },
+  {
+    "title": "I Swear",
+    "artist": "All-4-One",
+    "genre": "R&B"
+  },
+  {
+    "title": "Smooth",
+    "artist": "Santana ft. Rob Thomas",
+    "genre": "Rock"
+  },
+  {
+    "title": "The Sign",
+    "artist": "Ace of Base",
+    "genre": "Pop"
+  },
+  {
+    "title": "Mo Money Mo Problems",
+    "artist": "The Notorious B.I.G.",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "What Is Love",
+    "artist": "Haddaway",
+    "genre": "Dance"
+  },
+  {
+    "title": "Black Velvet",
+    "artist": "Alannah Myles",
+    "genre": "Rock"
+  },
+  {
+    "title": "Tubthumping",
+    "artist": "Chumbawamba",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "Kiss from a Rose",
+    "artist": "Seal",
+    "genre": "Pop"
+  },
+  {
+    "title": "You Get What You Give",
+    "artist": "New Radicals",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "Gonna Make You Sweat (Everybody Dance Now)",
+    "artist": "C+C Music Factory",
+    "genre": "Dance"
+  },
+  {
+    "title": "My Own Worst Enemy",
+    "artist": "Lit",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "Groove Is in the Heart",
+    "artist": "Deee-Lite",
+    "genre": "Dance"
+  },
+  {
+    "title": "U Can't Touch This",
+    "artist": "MC Hammer",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Cotton Eye Joe",
+    "artist": "Rednex",
+    "genre": "Dance"
+  },
+  {
+    "title": "Barbie Girl",
+    "artist": "Aqua",
+    "genre": "Pop"
+  },
+  {
+    "title": "C'est La Vie",
+    "artist": "B*Witched",
+    "genre": "Pop"
+  },
+  {
+    "title": "Bittersweet Symphony",
+    "artist": "The Verve",
+    "genre": "Britpop"
+  },
+  {
+    "title": "Breakfast at Tiffany's",
+    "artist": "Deep Blue Something",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "I Love You Always Forever",
+    "artist": "Donna Lewis",
+    "genre": "Pop"
+  },
+  {
+    "title": "Informer",
+    "artist": "Snow",
+    "genre": "Reggae Fusion"
+  },
+  {
+    "title": "Runaway Train",
+    "artist": "Soul Asylum",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "All That She Wants",
+    "artist": "Ace of Base",
+    "genre": "Pop"
+  },
+  {
+    "title": "Creep",
+    "artist": "TLC",
+    "genre": "R&B"
+  },
+  {
+    "title": "Boom Boom Boom",
+    "artist": "The Outhere Brothers",
+    "genre": "Dance"
+  },
+  {
+    "title": "Closing Time",
+    "artist": "Semisonic",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "The Power",
+    "artist": "Snap!",
+    "genre": "Dance"
+  },
+  {
+    "title": "If You Had My Love",
+    "artist": "Jennifer Lopez",
+    "genre": "Pop"
+  },
+  {
+    "title": "Dreams",
+    "artist": "The Cranberries",
+    "genre": "Alternative Rock"
+  },
+  {
+    "title": "I Believe I Can Fly",
+    "artist": "R. Kelly",
+    "genre": "R&B"
+  },
+  {
+    "title": "Everybody (Backstreet's Back)",
+    "artist": "Backstreet Boys",
+    "genre": "Pop"
+  },
+  {
+    "title": "Don't Let Go (Love)",
+    "artist": "En Vogue",
+    "genre": "R&B"
+  },
+  {
+    "title": "Jump",
+    "artist": "Kris Kross",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Torn",
+    "artist": "Natalie Imbruglia",
+    "genre": "Pop"
+  },
+  {
+    "title": "Wannabe",
+    "artist": "Spice Girls",
+    "genre": "Pop"
+  },
+  {
+    "title": "I Want You",
+    "artist": "Savage Garden",
+    "genre": "Pop"
+  },
+  {
+    "title": "I'll Be Missing You",
+    "artist": "Puff Daddy",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Believe",
+    "artist": "Cher",
+    "genre": "Pop"
+  },
+  {
+    "title": "Whoomp! (There It Is)",
+    "artist": "Tag Team",
+    "genre": "Hip Hop"
+  },
+  {
+    "title": "Wannabe",
+    "artist": "Spice Girls",
+    "genre": "Pop"
+  },
+  {
+    "title": "Don't Look Back In Anger",
+    "artist": "Oasis",
+    "genre": "Britpop"
+  },
+  {
+    "title": "She's So High",
+    "artist": "Tal Bachman",
+    "genre": "Pop"
+  },
+  {
+    "title": "I Try",
+    "artist": "Macy Gray",
+    "genre": "R&B"
+  },
+  {
+    "title": "Freak on a Leash",
+    "artist": "Korn",
+    "genre": "Nu Metal"
+  }
+]

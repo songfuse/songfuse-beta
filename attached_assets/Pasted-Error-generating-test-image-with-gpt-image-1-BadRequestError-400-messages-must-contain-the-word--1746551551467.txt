@@ -1,0 +1,42 @@
+Error generating test image with gpt-image-1: BadRequestError: 400 'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/error.ts:72:14)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/core.ts:462:21)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/core.ts:526:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/server/test-image-route.ts:67:30) {
+  status: 400,
+  headers: {
+    'access-control-expose-headers': 'X-Request-ID',
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': '93ba19d7edc2765d-SEA',
+    connection: 'keep-alive',
+    'content-length': '219',
+    'content-type': 'application/json',
+    date: 'Tue, 06 May 2025 17:12:10 GMT',
+    'openai-organization': 'musicwordslove',
+    'openai-processing-ms': '97',
+    'openai-version': '2020-10-01',
+    server: 'cloudflare',
+    'set-cookie': '__cf_bm=6RK8SePj0F1DtnPAkm.zBs3m0x_78MHI3eHO1mrGj2g-1746551530-1.0.1.1-vuhjtIJUDbjhdLpR38rP.VHjSAW.h8WuP6kYv80b6cHHd_eZN6TXOnTVYVj.IMmiPCdGyRTgVrZTbIPYfu1z0SOVCBX6Jm8QuqbquwNPOmo; path=/; expires=Tue, 06-May-25 17:42:10 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None, _cfuvid=0j3r6raQH3Tp4XamFYKjSlNsiyFMOwoIR17DHCsnkrM-1746551530507-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'x-ratelimit-limit-requests': '5000',
+    'x-ratelimit-limit-tokens': '800000',
+    'x-ratelimit-remaining-requests': '4999',
+    'x-ratelimit-remaining-tokens': '799959',
+    'x-ratelimit-reset-requests': '12ms',
+    'x-ratelimit-reset-tokens': '3ms',
+    'x-request-id': 'req_a284c356a3b6c02a81d400ddd4f14a6e'
+  },
+  request_id: 'req_a284c356a3b6c02a81d400ddd4f14a6e',
+  error: {
+    message: "'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.",
+    type: 'invalid_request_error',
+    param: 'messages',
+    code: null
+  },
+  code: null,
+  param: 'messages',
+  type: 'invalid_request_error'
+}

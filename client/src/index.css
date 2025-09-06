@@ -1,0 +1,384 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+/* Music-themed spinner animations */
+@keyframes equalizer {
+  0%, 100% {
+    height: 20%;
+  }
+  50% {
+    height: 80%;
+  }
+}
+
+@keyframes waveform {
+  0%, 100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes smooth-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes progress-indeterminate {
+  0% {
+    width: 0%;
+    left: 0;
+  }
+  50% {
+    width: 30%;
+  }
+  100% {
+    width: 0%;
+    left: 100%;
+  }
+}
+
+@layer utilities {
+  .animate-equalizer {
+    animation: equalizer 0.8s ease-in-out infinite;
+  }
+
+  .animate-waveform {
+    animation: waveform 1.2s ease-in-out infinite;
+  }
+  
+  .animate-smooth-spin {
+    animation: smooth-spin 1.5s linear infinite;
+  }
+  
+  .shimmer-animation {
+    animation: shimmer 2s infinite;
+  }
+  
+  .progress-bar-animated::before {
+    content: '';
+    position: absolute;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.7), transparent);
+    height: 100%;
+    width: 50%;
+    top: 0;
+    left: -50%;
+    animation: progress-indeterminate 1.5s ease-in-out infinite;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Work Sans', sans-serif;
+  }
+  
+  h1 {
+    font-family: 'Work Sans', sans-serif !important;
+    font-weight: 700 !important; /* Bold */
+    font-size: 2.5rem; /* 40px */
+    line-height: 1.2;
+  }
+  
+  h2 {
+    font-family: 'Work Sans', sans-serif !important;
+    font-weight: 700 !important; /* Bold */
+    font-size: 2rem; /* 32px */
+    line-height: 1.3;
+  }
+  
+  h3 {
+    @apply font-sans font-bold;
+    font-family: 'Work Sans', sans-serif;
+    font-size: 1.5rem; /* 24px */
+    line-height: 1.4;
+  }
+  
+  h4 {
+    @apply font-sans font-semibold;
+    font-family: 'Work Sans', sans-serif;
+    font-size: 1.25rem; /* 20px */
+    line-height: 1.4;
+  }
+  
+  h5 {
+    @apply font-sans font-semibold;
+    font-family: 'Work Sans', sans-serif;
+    font-size: 1.125rem; /* 18px */
+    line-height: 1.5;
+  }
+  
+  h6 {
+    @apply font-sans font-medium;
+    font-family: 'Work Sans', sans-serif;
+    font-size: 1rem; /* 16px */
+    line-height: 1.5;
+  }
+
+  /* Button styling for brand consistency */
+  button, .btn, [type="button"], [type="submit"], [type="reset"] {
+    @apply rounded-none -skew-y-2 !important;
+  }
+  
+  :root {
+    --radius: 0;
+    
+    --primary: 358 74% 49%;
+    --primary-foreground: 0 0% 100%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --chart-1: 358 74% 49%;
+    --chart-2: 262 83% 58%;
+    --chart-3: 0 0% 70%;
+    --chart-4: 217 91% 60%;
+    --chart-5: 338 85% 43%;
+  }
+  
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
+    
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 100%;
+    
+    --secondary: 0 0% 33%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 70%;
+    
+    --accent: 358 74% 49%;
+    --accent-foreground: 0 0% 100%;
+    
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 358 74% 49%;
+    
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 358 74% 49%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 358 74% 49%;
+  }
+  
+  .light {
+    --background: 0 0% 98%;
+    --foreground: 0 0% 10%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 0 0% 10%;
+    
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 30%;
+    
+    --accent: 358 74% 49%;
+    --accent-foreground: 0 0% 100%;
+    
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 358 74% 49%;
+    
+    --sidebar-background: 0 0% 96%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-primary: 358 74% 49%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 90%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 85%;
+    --sidebar-ring: 358 74% 49%;
+  }
+}
+
+/* Custom scrollbar for the Spotify-like feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #191414;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #535353;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #d02b31;
+}
+
+.light ::-webkit-scrollbar-track {
+  background: #f0f0f0;
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #d02b31;
+}
+
+/* Audio player animation */
+.audio-visualizer {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.audio-bar {
+  width: 2px;
+  background-color: hsl(var(--primary));
+  border-radius: 1px;
+}
+
+/* Gradient background for AI elements */
+.bg-gradient {
+  background: linear-gradient(135deg, #d02b31, #ff6b6e);
+}
+
+/* Hover effect for playlist items */
+.dark .playlist-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.light .playlist-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Work Sans font styling utilities */
+.font-work-sans {
+  font-family: 'Work Sans', sans-serif;
+}
+
+.font-light {
+  font-weight: 300;
+}
+
+.font-normal {
+  font-weight: 400;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+/* Typography customizations */
+.text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(90deg, #d02b31, #ff6b6e);
+}
+
+/* Songfuse-specific styling */
+.songfuse-branding {
+  font-family: 'Work Sans', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.songfuse-gradient {
+  background-image: linear-gradient(135deg, #d02b31, #ff6b6e);
+}
+
+.songfuse-text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(90deg, #d02b31, #ff6b6e);
+}
+
+/* Spotify embed styling */
+iframe {
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  max-width: 100%;
+}
+
+/* Override for Spotify embed iframes */
+.spotify-embed-container iframe {
+  height: 80px !important;
+  max-height: 80px !important;
+  min-height: 80px !important;
+  width: 100% !important;
+  overflow: visible !important;
+  border: none !important;
+}
+
+/* Specific override for playlist embeds */
+.spotify-embed-container.playlist iframe {
+  height: 152px !important;
+  max-height: 352px !important;
+  min-height: 152px !important;
+}
+
+.spotify-button {
+  color: #1DB954;
+  border-color: #1DB954;
+  background-color: transparent;
+  transition: all 0.2s ease;
+}
+
+.spotify-button:hover {
+  background-color: #1DB954;
+  color: white;
+}

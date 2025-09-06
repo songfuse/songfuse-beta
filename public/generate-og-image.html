@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OG Image Generator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+        }
+        
+        #canvas {
+            border: 2px solid #ccc;
+            margin: 20px 0;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #d02b31;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #a02125;
+        }
+        
+        .download-link {
+            display: none;
+            margin: 20px 0;
+            padding: 10px;
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            border-radius: 5px;
+        }
+        
+        .download-link a {
+            color: #2e7d32;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>SongFuse OG Image Generator</h1>
+    <p>This tool generates a PNG image optimized for social media sharing.</p>
+    
+    <div class="controls">
+        <button onclick="generateImage()">Generate OG Image</button>
+        <button onclick="downloadImage()">Download PNG</button>
+    </div>
+    
+    <canvas id="canvas" width="1200" height="630"></canvas>
+    
+    <div id="downloadLink" class="download-link">
+        <a href="#" download="songfuse-og-image.png">Right-click and save the image above</a>
+    </div>
+    
+    <script>
+        function generateImage() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            canvas.width = 1200;
+            canvas.height = 630;
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, 1200, 630);
+            gradient.addColorStop(0, '#000000');
+            gradient.addColorStop(0.5, '#1a1a1a');
+            gradient.addColorStop(1, '#000000');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 1200, 630);
+            
+            // Add subtle decorative dots
+            ctx.fillStyle = 'rgba(208, 43, 49, 0.3)';
+            ctx.beginPath();
+            ctx.arc(100, 100, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(208, 43, 49, 0.2)';
+            ctx.beginPath();
+            ctx.arc(1100, 150, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(208, 43, 49, 0.4)';
+            ctx.beginPath();
+            ctx.arc(200, 500, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(208, 43, 49, 0.3)';
+            ctx.beginPath();
+            ctx.arc(1000, 480, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Logo circle
+            ctx.fillStyle = '#d02b31';
+            ctx.beginPath();
+            ctx.arc(150, 250, 40, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Logo inner square
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(125, 225, 50, 50);
+            
+            // Logo cross
+            ctx.fillStyle = '#d02b31';
+            ctx.fillRect(147, 235, 6, 30);
+            ctx.fillRect(135, 247, 30, 6);
+            
+            // Main title
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 84px Arial, sans-serif';
+            ctx.fillText('SongFuse', 250, 280);
+            
+            // Subtitle
+            ctx.fillStyle = '#d02b31';
+            ctx.font = '600 36px Arial, sans-serif';
+            ctx.fillText('AI-Powered Music Discovery', 250, 330);
+            
+            // Description
+            ctx.fillStyle = '#cccccc';
+            ctx.font = '24px Arial, sans-serif';
+            ctx.fillText('Create personalized playlists with AI that understands your taste', 250, 380);
+            
+            // Features
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '20px Arial, sans-serif';
+            
+            // Feature dots
+            ctx.fillStyle = '#d02b31';
+            ctx.beginPath();
+            ctx.arc(258, 425, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(258, 455, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(258, 485, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Feature text
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('AI-Generated Playlists', 275, 430);
+            ctx.fillText('Beautiful Cover Art', 275, 460);
+            ctx.fillText('Smart Social Sharing', 275, 490);
+            
+            // Call to action button
+            const buttonGradient = ctx.createLinearGradient(250, 530, 450, 530);
+            buttonGradient.addColorStop(0, '#d02b31');
+            buttonGradient.addColorStop(1, '#ff4444');
+            
+            ctx.fillStyle = buttonGradient;
+            ctx.fillRect(250, 530, 200, 60);
+            
+            // Button text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Start Creating', 350, 565);
+            
+            // URL
+            ctx.fillStyle = '#888888';
+            ctx.font = '18px Arial, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('songfuse.app', 1180, 600);
+            
+            // Reset text align
+            ctx.textAlign = 'left';
+            
+            // Show download link
+            document.getElementById('downloadLink').style.display = 'block';
+        }
+        
+        function downloadImage() {
+            const canvas = document.getElementById('canvas');
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = 'songfuse-og-image.png';
+            link.click();
+        }
+        
+        // Generate image on page load
+        window.onload = function() {
+            generateImage();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+        console.log("PLAYLIST TRACK TITLES:");
+        tracks.forEach((track, index) => {
+          console.log(`${index + 1}. ${track.name} by ${track.artists.map(a => a.name).join(', ')}`);
+        });
+      }
+      
+      // Return the playlist WITHOUT the cover image
+      // The client will request a cover image separately to improve perceived performance
+      res.json({
+        message: aiResponseText,
+        playlist: {
+          title: playlistIdeas.title,
+          description: playlistIdeas.description,
+          coverImageUrl: "", // Empty string instead of null to avoid client-side issues
+          tracks
+        }
+      });
+      
+      // No longer automatically generating cover images
+      // Cover images will be generated on-demand when requested by the user
+      console.log("Automatic cover image generation disabled - user will need to generate a cover manually");
+    } catch (error) {
+      console.error("Generate playlist error:", error);
+      res.status(500).json({ message: "Failed to generate playlist" });
+    }
+  });
+
+  // Chat message history
+  app.get("/api/chat/:sessionId", async (req: Request, res: Response) => {
+    try {
+      const { sessionId } = req.params;

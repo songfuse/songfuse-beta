@@ -1,0 +1,46 @@
+Generating image with model: gpt-image-1, prompt: "Minimalist music album cover with geometric shapes and vibrant colors", using directAPI: false
+Generating OpenAI image with model: gpt-image-1, prompt: "Minimalist music album cover with geometric shapes and vibrant colors"
+Making request to OpenAI with params: {
+  "prompt": "Minimalist music album cover with geometric shapes and vibrant colors",
+  "n": 1,
+  "model": "gpt-image-1",
+  "size": "1024x1024",
+  "negative_prompt": "text, watermark, signature, blurry, distorted, low quality"
+}
+Error generating OpenAI image: BadRequestError: 400 Unknown parameter: 'negative_prompt'.
+    at Function.generate (/home/runner/workspace/node_modules/openai/src/error.ts:72:14)
+    at OpenAI.makeStatusError (/home/runner/workspace/node_modules/openai/src/core.ts:462:21)
+    at OpenAI.makeRequest (/home/runner/workspace/node_modules/openai/src/core.ts:526:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async generateOpenAIImage (/home/runner/workspace/server/services/openaiImageService.ts:75:22)
+    at async <anonymous> (/home/runner/workspace/server/gpt-image-json-endpoint.ts:183:20) {
+  status: 400,
+  headers: {
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': '9407a711dfe0df19-SEA',
+    connection: 'keep-alive',
+    'content-length': '177',
+    'content-type': 'application/json',
+    date: 'Fri, 16 May 2025 03:05:18 GMT',
+    'openai-organization': 'musicwordslove',
+    'openai-processing-ms': '12',
+    'openai-version': '2020-10-01',
+    server: 'cloudflare',
+    'set-cookie': '__cf_bm=E1yAfO1YcgxY918_1SQM0SZcSJnWv9lzOWwPzY4Aezg-1747364718-1.0.1.1-tLHNcpajSZewdMbSokKfITTkbSczGPWO72tXQaMQH7LIXXZHyRqInzU6RRbLDWldBBDxccOcFw_ZvVHmtBBVkZwDDB.TG6kXHWp7OuF3mQ4; path=/; expires=Fri, 16-May-25 03:35:18 GMT; domain=.api.openai.com; HttpOnly; Secure; SameSite=None, _cfuvid=aZPikW1Am1TRt_0M5Zo9vEJmCvPMZdfqie6_ge83ZE0-1747364718446-0.0.1.1-604800000; path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None',
+    'strict-transport-security': 'max-age=31536000; includeSubDomains; preload',
+    'x-content-type-options': 'nosniff',
+    'x-request-id': 'req_71b8d7bbf6f08965f82b9856135ae99d'
+  },
+  request_id: 'req_71b8d7bbf6f08965f82b9856135ae99d',
+  error: {
+    message: "Unknown parameter: 'negative_prompt'.",
+    type: 'invalid_request_error',
+    param: 'negative_prompt',
+    code: 'unknown_parameter'
+  },
+  code: 'unknown_parameter',
+  param: 'negative_prompt',
+  type: 'invalid_request_error'
+}
+Failed to generate image

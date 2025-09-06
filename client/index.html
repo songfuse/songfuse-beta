@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Songfuse - AI-Powered Playlist Generator</title>
+    
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="SongFuse | AI-Powered Music Playlist Generator">
+    <meta name="description" content="Create perfect playlists in seconds with the power of AI. Just describe your mood, occasion, or musical preference — SongFuse does the rest.">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="SongFuse | AI-Powered Music Playlist Generator">
+    <meta property="og:description" content="Create perfect playlists in seconds with the power of AI. Just describe your mood, occasion, or musical preference — SongFuse does the rest.">
+    <meta property="og:image" content="/images/covers/cover-1747487037971.jpg">
+    <meta property="og:site_name" content="SongFuse">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="SongFuse | AI-Powered Music Playlist Generator">
+    <meta property="twitter:description" content="Create perfect playlists in seconds with the power of AI. Just describe your mood, occasion, or musical preference — SongFuse does the rest.">
+    <meta property="twitter:image" content="/images/covers/cover-1747487037971.jpg">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/src/assets/songfuse-brand.svg" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
+    <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
+    
+    <!-- Suppress WebSocket errors in development -->
+    <script>
+      // Prevent WebSocket connection errors from showing in the console
+      const originalConsoleError = console.error;
+      console.error = function(msg, ...args) {
+        // Filter out WebSocket connection errors related to development hot reloading
+        if (typeof msg === 'string' && 
+            (msg.includes('WebSocket connection') || 
+             msg.includes('Failed to construct \'WebSocket\'') ||
+             msg.includes('The connection was closed'))) {
+          return;
+        }
+        originalConsoleError.apply(console, [msg, ...args]);
+      };
+    </script>
+  </body>
+</html>

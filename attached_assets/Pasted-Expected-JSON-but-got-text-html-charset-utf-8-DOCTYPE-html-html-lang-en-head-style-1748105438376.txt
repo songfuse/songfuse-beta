@@ -1,0 +1,111 @@
+Expected JSON but got: text/html; charset=utf-8 <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <style data-vite-theme="" data-inject-first="">:root {
+      --background: 5 86% 79%;
+--foreground: 354 100% 9%;
+--muted: 3 78% 68%;
+--muted-foreground: 354 100% 9%;
+--popover: 6 100% 99%;
+--popover-foreground: 354 100% 9%;
+--card: 6 100% 99%;
+--card-foreground: 354 100% 9%;
+--border: 3 78% 68%;
+--input: 3 78% 68%;
+--primary: 1 100% 69%;
+--primary-foreground: 6 100% 99%;
+--secondary: 5 100% 86%;
+--secondary-foreground: 354 100% 9%;
+--accent: 5 100% 86%;
+--accent-foreground: 354 100% 9%;
+--destructive: 0 84.2% 60.2%;
+--destructive-foreground: 60 9.1% 97.8%;
+--ring: 1 100% 69%;
+--radius: 0rem;
+  }
+  .dark {
+      --background: 353 100% 1%;
+--foreground: 6 100% 96%;
+--muted: 356 78% 30%;
+--muted-foreground: 6 100% 96%;
+--popover: 357 98% 10%;
+--popover-foreground: 6 100% 96%;
+--card: 357 98% 10%;
+--card-foreground: 6 100% 96%;
+--border: 356 78% 30%;
+--input: 356 78% 30%;
+--primary: 359 72% 55%;
+--primary-foreground: 6 100% 99%;
+--secondary: 356 78% 30%;
+--secondary-foreground: 6 100% 96%;
+--accent: 356 78% 30%;
+--accent-foreground: 6 100% 96%;
+--destructive: 0 62.8% 30.6%;
+--destructive-foreground: 0 0% 98%;
+--ring: 359 72% 55%;
+--radius: 0rem;
+  }</style>
+
+    <script type="module">
+import { createHotContext } from "/@vite/client";
+const hot = createHotContext("/__dummy__runtime-error-plugin");
+
+function sendError(error) {
+  if (!(error instanceof Error)) {
+    error = new Error("(unknown runtime error)");
+  }
+  const serialized = {
+    message: error.message,
+    stack: error.stack,
+  };
+  hot.send("runtime-error-plugin:error", serialized);
+}
+
+window.addEventListener("error", (evt) => {
+  sendError(evt.error);
+});
+
+window.addEventListener("unhandledrejection", (evt) => {
+  sendError(evt.reason);
+});
+</script>
+
+    <script type="module">
+import RefreshRuntime from "/@react-refresh"
+RefreshRuntime.injectIntoGlobalHook(window)
+window.$RefreshReg$ = () => {}
+window.$RefreshSig$ = () => (type) => type
+window.__vite_plugin_react_preamble_installed__ = true
+</script>
+
+    <script type="module" src="/@vite/client"></script>
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Songfuse - AI-Powered Playlist Generator</title>
+    
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="SongFuse | AI-Powered Music Playlist Generator">
+    <meta name="description" content="Create perfect playlists in seconds with the power of AI. Just describe your mood, occasion, or musical preference — SongFuse does the rest.">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="SongFuse | AI-Powered Music Playlist Generator">
+    <meta property="og:description" content="Create perfect playlists in seconds with the power of AI. Just describe your mood, occasion, or musical preference — SongFuse does the rest.">
+    <meta property="og:image" content="/images/covers/cover-1747487037971.jpg">
+    <meta property="og:site_name" content="SongFuse">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="SongFuse | AI-Powered Music Playlist Generator">
+    <meta property="twitter:description" content="Create perfect playlists in seconds with the power of AI. Just describe your mood, occasion, or musical preference — SongFuse does the rest.">
+    <meta property="twitter:image" content="/images/covers/cover-1747487037971.jpg">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/src/assets/songfuse-brand.svg" />
+    <script type="module">"use strict";(()=>{var F="0.0.11";var T={HIGHLIGHT_COLOR:"#0079F2",HIGHLIGHT_BG:"#0079F210",ALLOWED_DOMAIN:".replit.dev"},I={highlighter:{position:"absolute",zIndex:Number.MAX_SAFE_INTEGER-3,boxSizing:"border-box",pointerEvents:"none",border:`2px solid ${T.HIGHLIGHT_COLOR}`,borderRadius:"4px",background:T.HIGHLIGHT_BG,transition:"opacity 0.2s",willChange:"opacity",opacity:"0"},label:{position:"absolute",backgroundColor:T.HIGHLIGHT_COLOR,color:"#FFFFFF",padding:"2px 6px",borderRadius:"4px",fontSize:"12px",fontFamily:"monospace",transform:"translateY(-100%)",marginTop:"-4px",zIndex:Number.MAX_SAFE_INTEGER-2,pointerEvents:"none",opacity:"0"}};function Le(e,n){return e[13]=1,e[14]=n>>8,e[15]=n&255,e[16]=n>>8,e[17]=n&255,e}var ne=112,re=72,oe=89,ie=115,W;function Ne(){let e=new Int32Array(256);for(let n=0;n<256;n++){let t=n;for(let r=0;r<8;r++)t=t&1?3988292384^t>>>1:t>>>1;e[n]=t}return e}function Ie(e){let n=-1;W||(W=Ne());for(let t=0;t<e.length;t++)n=W[(n^e[t])&255]^n>>>8;return n^-1}function xe(e){let n=e.length-1;for(let t=n;t>=4;t--)if(e[t-4]===9&&e[t-3]===ne&&e[t-2]===re&&e[t-1
+console.error @ venomous-vibes-rosy-resurgence:142Understand this error
+venomous-vibes-rosy-resurgence:142 Smart link creation error: Error: Server returned non-JSON response
+    at Object.mutationFn (CreateSmartLinkModal.tsx:86:15)
