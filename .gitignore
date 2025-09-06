@@ -7,3 +7,8 @@ vite.config.ts.*
 songfuse_backup*
 songfuse_part*
 *backup*
+
+# Environment variables
+.env
+.env.local
+.env.*.local

@@ -15,6 +15,7 @@ import PlaylistDetails from "@/pages/PlaylistDetails";
 import TrackImport from "@/pages/TrackImport";
 import TermsOfService from "@/pages/TermsOfService";
 import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 import Discover from "@/pages/Discover";
 import DiscoverPlaylistDetail from "@/pages/DiscoverPlaylistDetail";
 import EmbeddingMonitor from "@/pages/EmbeddingMonitor";
@@ -87,6 +88,7 @@ function Router() {
       <Route path="/" component={MarketingLanding} />
       <Route path="/old-home" component={Home} />
       <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
       <Route path="/homepage">
         {() => <ProtectedRoute component={Homepage} />}
       </Route>

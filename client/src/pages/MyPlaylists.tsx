@@ -253,7 +253,7 @@ const MyPlaylists = () => {
           <div className="flex items-center gap-2">
           <h1 className="font-bold bg-gradient-to-r from-teal-400 to-[#1DB954] text-transparent bg-clip-text text-[40px]">My Playlists</h1>
           {!isLoading && !isError && (
-            <span className="text-sm text-gray-600 dark:text-gray-400 font-normal bg-gray-100 dark:bg-[#282828] border-gray-200 dark:border-[#3E3E3E] px-2 py-0.5 rounded-full">
+            <span className="text-sm text-muted-foreground font-normal bg-muted border-border px-2 py-0.5 rounded-full">
               {playlists.length} {playlists.length === 1 ? 'playlist' : 'playlists'}
             </span>
           )}
@@ -268,16 +268,16 @@ const MyPlaylists = () => {
                 placeholder={searchType === "description" ? "Search by description..." : "Search by title..."}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                className="bg-white dark:bg-card border border-gray-300 dark:border-border rounded-md shadow-sm w-full pl-10 focus:ring-1 focus:ring-primary focus:border-primary text-gray-800 dark:text-white"
+                className="bg-background border border-input rounded-md shadow-sm w-full pl-10 focus:ring-1 focus:ring-ring focus:border-ring text-foreground"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                <Search className="h-4 w-4 text-muted-foreground" />
               </div>
               {inputValue && (
                 <button
                   type="button"
                   onClick={() => setInputValue("")}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -292,7 +292,7 @@ const MyPlaylists = () => {
               value={searchType} 
               onValueChange={(value) => setSearchType(value as "title" | "description")}
             >
-              <SelectTrigger className="bg-white dark:bg-card border border-gray-300 dark:border-border rounded-md shadow-sm text-gray-700 dark:text-foreground w-[180px]">
+              <SelectTrigger className="bg-background border border-input rounded-md shadow-sm text-foreground w-[180px]">
                 <SelectValue placeholder="Search by" />
               </SelectTrigger>
               <SelectContent>
@@ -358,11 +358,11 @@ const MyPlaylists = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {searchQuery && filteredPlaylists.length === 0 ? (
             <div className="md:col-span-2 lg:col-span-3 xl:col-span-4 text-center py-10">
-              <div className="h-20 w-20 bg-gray-100 dark:bg-accent rounded-full mx-auto overflow-hidden mb-6 flex items-center justify-center">
-                <Search className="h-8 w-8 text-gray-500 dark:text-gray-400" />
+              <div className="h-20 w-20 bg-muted rounded-full mx-auto overflow-hidden mb-6 flex items-center justify-center">
+                <Search className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-white">No playlists found</h3>
-              <p className="text-gray-600 dark:text-muted-foreground mb-6">No playlists matching "{searchQuery}" were found</p>
+              <h3 className="text-xl font-semibold mb-2 text-foreground">No playlists found</h3>
+              <p className="text-muted-foreground mb-6">No playlists matching "{searchQuery}" were found</p>
               <Button 
                 onClick={() => {
                   setSearchQuery("");

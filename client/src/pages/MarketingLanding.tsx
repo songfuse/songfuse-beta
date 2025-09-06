@@ -23,6 +23,7 @@ import MetaTags from "@/components/MetaTags";
 import songfuseBrandDark from "@/assets/songfuse-brand-dark.svg";
 import songfuseIcon from "@assets/songfuse_ico.png";
 import { useAuth } from "@/contexts/AuthContext";
+import Header from "@/components/Header";
 
 interface Playlist {
   id: number;
@@ -56,17 +57,6 @@ const MarketingLanding = () => {
     },
   });
 
-  const handleLogin = async () => {
-    try {
-      const response = await fetch("/api/auth/spotify");
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-    }
-  };
 
   // Animation variants
   const fadeInUp = {
@@ -142,7 +132,7 @@ const MarketingLanding = () => {
   }, [testimonials.length]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background dark:from-black dark:via-gray-900 dark:to-black">
       <MetaTags
         title="SongFuse | AI-Powered Music Playlist Generator"
         description="Create perfect playlists in seconds with AI. Transform your musical ideas into curated playlists with beautiful covers and smart social sharing."
@@ -152,34 +142,9 @@ const MarketingLanding = () => {
       />
 
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-black/30 backdrop-blur-md border-b border-red-500/20">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <img 
-                src={songfuseBrandDark} 
-                alt="SongFuse" 
-                className="h-8"
-              />
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button 
-                variant="ghost" 
-                className="text-white hover:text-red-400"
-                onClick={() => setLocation("/discover")}
-              >
-                Discover
-              </Button>
-              <Button 
-                onClick={handleLogin}
-                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-2 rounded-full font-medium transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                Get Started Free
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <div className="fixed top-0 w-full z-50">
+        <Header />
+      </div>
 
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-6">
@@ -191,14 +156,14 @@ const MarketingLanding = () => {
             className="text-center"
           >
             <motion.div variants={fadeInUp} className="mb-6">
-              <Badge className="bg-red-500/20 text-red-300 border-red-500/30 px-4 py-2 text-sm font-medium">
+              <Badge className="bg-red-500/20 text-red-300 dark:text-red-300 border-red-500/30 px-4 py-2 text-sm font-medium">
                 ✨ Powered by Advanced AI
               </Badge>
             </motion.div>
             
             <motion.h1 
               variants={fadeInUp}
-              className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight"
+              className="text-5xl md:text-7xl font-bold text-foreground mb-6 leading-tight"
             >
               Your Music,
               <br />
@@ -209,7 +174,7 @@ const MarketingLanding = () => {
             
             <motion.p 
               variants={fadeInUp}
-              className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed"
+              className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed"
             >
               Transform your musical ideas into curated playlists in seconds. 
               Our AI understands your vibe and creates playlists with stunning covers ready to share.
@@ -220,7 +185,7 @@ const MarketingLanding = () => {
               className="flex flex-col sm:flex-row gap-4 justify-center items-center"
             >
               <Button 
-                onClick={handleLogin}
+                onClick={() => setLocation("/register")}
                 size="lg"
                 className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105"
               >
@@ -233,7 +198,7 @@ const MarketingLanding = () => {
                 variant="outline"
                 size="lg"
                 onClick={() => setLocation("/discover")}
-                className="border-red-500/30 text-white hover:bg-red-500/10 hover:border-red-400 px-8 py-4 rounded-full text-lg font-medium transition-all duration-300"
+                className="border-red-500/30 text-foreground hover:bg-red-500/10 hover:border-red-400 px-8 py-4 rounded-full text-lg font-medium transition-all duration-300"
               >
                 <Play className="mr-2 h-5 w-5" />
                 Explore Examples
@@ -253,10 +218,10 @@ const MarketingLanding = () => {
               transition={{ duration: 0.6 }}
               className="text-center mb-12"
             >
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
                 AI-Generated Playlists
               </h2>
-              <p className="text-gray-400 text-lg">
+              <p className="text-muted-foreground text-lg">
                 Real playlists created by our community using AI
               </p>
             </motion.div>
@@ -271,7 +236,7 @@ const MarketingLanding = () => {
                 <motion.div
                   key={playlist.id}
                   variants={fadeInUp}
-                  className="group bg-white/5 backdrop-blur-sm rounded-xl p-4 hover:bg-white/10 transition-all duration-300 cursor-pointer transform hover:scale-105"
+                  className="group bg-white/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-4 hover:bg-white/10 dark:hover:bg-white/10 transition-all duration-300 cursor-pointer transform hover:scale-105 border border-border"
                   onClick={() => setLocation(`/discover/playlist/${playlist.id}`)}
                 >
                   <div className="aspect-square bg-gradient-to-br from-red-500/20 to-red-600/20 rounded-lg mb-3 overflow-hidden">
@@ -287,10 +252,10 @@ const MarketingLanding = () => {
                       </div>
                     )}
                   </div>
-                  <h3 className="text-white font-semibold mb-1 line-clamp-2">
+                  <h3 className="text-foreground font-semibold mb-1 line-clamp-2">
                     {playlist.title}
                   </h3>
-                  <p className="text-gray-400 text-sm">
+                  <p className="text-muted-foreground text-sm">
                     {playlist.songCount || 0} tracks • AI Generated
                   </p>
                 </motion.div>
@@ -309,10 +274,10 @@ const MarketingLanding = () => {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Everything You Need for Perfect Playlists
             </h2>
-            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               From AI curation to social sharing, we've got every aspect of playlist creation covered
             </p>
           </motion.div>
@@ -327,15 +292,15 @@ const MarketingLanding = () => {
               <motion.div
                 key={index}
                 variants={fadeInUp}
-                className="group bg-white/5 backdrop-blur-sm rounded-xl p-6 hover:bg-white/10 transition-all duration-300 border border-red-500/10 hover:border-red-500/20"
+                className="group bg-white/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-6 hover:bg-white/10 dark:hover:bg-white/10 transition-all duration-300 border border-red-500/10 hover:border-red-500/20"
               >
                 <div className="bg-gradient-to-r from-red-500 to-red-600 w-12 h-12 rounded-lg flex items-center justify-center mb-4 text-white group-hover:scale-110 transition-transform duration-300">
                   {feature.icon}
                 </div>
-                <h3 className="text-white font-semibold text-lg mb-2">
+                <h3 className="text-foreground font-semibold text-lg mb-2">
                   {feature.title}
                 </h3>
-                <p className="text-gray-400">
+                <p className="text-muted-foreground">
                   {feature.description}
                 </p>
               </motion.div>
@@ -345,7 +310,7 @@ const MarketingLanding = () => {
       </section>
 
       {/* How It Works */}
-      <section className="py-20 px-6 bg-black/20">
+      <section className="py-20 px-6 bg-black/20 dark:bg-black/20">
         <div className="container mx-auto max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -353,7 +318,7 @@ const MarketingLanding = () => {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Create Playlists in 3 Simple Steps
             </h2>
           </motion.div>
@@ -392,13 +357,13 @@ const MarketingLanding = () => {
                 <div className="bg-gradient-to-r from-red-500 to-red-600 w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-6 shadow-lg">
                   {item.step}
                 </div>
-                <h3 className="text-white font-semibold text-xl mb-3">
+                <h3 className="text-foreground font-semibold text-xl mb-3">
                   {item.title}
                 </h3>
-                <p className="text-gray-400 mb-4">
+                <p className="text-muted-foreground mb-4">
                   {item.description}
                 </p>
-                <div className="bg-white/5 rounded-lg p-3 text-sm text-red-300 italic border border-red-500/20">
+                <div className="bg-white/5 dark:bg-white/5 rounded-lg p-3 text-sm text-red-300 dark:text-red-300 italic border border-red-500/20">
                   "{item.example}"
                 </div>
                 
@@ -422,7 +387,7 @@ const MarketingLanding = () => {
             transition={{ duration: 0.6 }}
             className="mb-12"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
               Loved by Music Enthusiasts
             </h2>
           </motion.div>
@@ -433,20 +398,20 @@ const MarketingLanding = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
             transition={{ duration: 0.5 }}
-            className="bg-white/5 backdrop-blur-sm rounded-xl p-8"
+            className="bg-white/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-8 border border-border"
           >
             <div className="flex justify-center mb-4">
               {[...Array(5)].map((_, i) => (
                 <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
               ))}
             </div>
-            <blockquote className="text-xl text-gray-300 mb-6 italic">
+            <blockquote className="text-xl text-muted-foreground mb-6 italic">
               "{testimonials[currentTestimonial].text}"
             </blockquote>
-            <div className="text-white font-semibold">
+            <div className="text-foreground font-semibold">
               {testimonials[currentTestimonial].author}
             </div>
-            <div className="text-red-300 text-sm">
+            <div className="text-red-300 dark:text-red-300 text-sm">
               {testimonials[currentTestimonial].role}
             </div>
           </motion.div>
@@ -466,7 +431,7 @@ const MarketingLanding = () => {
       </section>
 
       {/* Stats */}
-      <section className="py-16 px-6 bg-black/20">
+      <section className="py-16 px-6 bg-black/20 dark:bg-black/20">
         <div className="container mx-auto max-w-6xl">
           <motion.div 
             className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center"
@@ -481,10 +446,10 @@ const MarketingLanding = () => {
               { number: "Instant", label: "Playlist Creation" }
             ].map((stat, index) => (
               <motion.div key={index} variants={fadeInUp}>
-                <div className="text-3xl md:text-4xl font-bold text-white mb-2">
+                <div className="text-3xl md:text-4xl font-bold text-foreground mb-2">
                   {stat.number}
                 </div>
-                <div className="text-gray-400">
+                <div className="text-muted-foreground">
                   {stat.label}
                 </div>
               </motion.div>
@@ -501,18 +466,18 @@ const MarketingLanding = () => {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+            <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-6">
               Ready to Transform Your
               <span className="bg-gradient-to-r from-red-400 to-red-600 bg-clip-text text-transparent">
                 {" "}Music Experience?
               </span>
             </h2>
-            <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
               Join thousands of music lovers who are already creating amazing playlists with AI
             </p>
             
             <Button 
-              onClick={handleLogin}
+              onClick={() => setLocation("/register")}
               size="lg"
               className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-12 py-6 rounded-full text-xl font-medium transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105"
             >
@@ -521,16 +486,16 @@ const MarketingLanding = () => {
               <ArrowRight className="ml-3 h-6 w-6" />
             </Button>
             
-            <div className="flex items-center justify-center mt-6 text-gray-400 text-sm">
-              <CheckCircle className="h-4 w-4 mr-2 text-green-400" />
-              No credit card required • Connect with Spotify in seconds
+            <div className="flex items-center justify-center mt-6 text-muted-foreground text-sm">
+              <CheckCircle className="h-4 w-4 mr-2 text-green-400 dark:text-green-400" />
+              No credit card required • Sign up in seconds
             </div>
           </motion.div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-red-500/20 py-8 px-6">
+      <footer className="border-t border-red-500/20 dark:border-red-500/20 py-8 px-6">
         <div className="container mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="flex items-center space-x-3 mb-4 md:mb-0">
@@ -545,7 +510,7 @@ const MarketingLanding = () => {
                 variant="ghost" 
                 size="sm"
                 onClick={() => setLocation("/terms")}
-                className="text-gray-400 hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Terms of Service
               </Button>
@@ -553,7 +518,7 @@ const MarketingLanding = () => {
                 variant="ghost" 
                 size="sm"
                 onClick={() => setLocation("/discover")}
-                className="text-gray-400 hover:text-white"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Discover
               </Button>

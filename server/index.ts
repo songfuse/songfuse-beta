@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import path from "path";
 import { registerRoutes } from "./routes-fixed"; // Switch back to the working routes-fixed.ts
@@ -27,6 +28,8 @@ import {
 } from "./api/social-images"; // Import social image API routes
 import { storage } from "./storage"; // Import storage for smart link metadata
 import { smartLinkSSRMiddleware } from "./services/smartLinkSSR"; // Import smart link SSR service
+import { simpleAuth } from "./auth/simple"; // Import simple auth middleware
+import simpleAuthRoutes from "./auth/simple-routes"; // Import simple auth routes
 
 // Define TypeScript type for global variables
 declare global {
@@ -61,6 +64,12 @@ import { getPlaylistByIdDirect } from './direct-db-access';
 
 // Add image verification middleware to ensure all cover images exist
 app.use(imageVerificationMiddleware);
+
+// Initialize simple authentication middleware
+app.use(simpleAuth);
+
+// Add simple authentication routes
+app.use('/api/auth', simpleAuthRoutes);
 
 // Serve static files from the public directory
 app.use(express.static(path.join(process.cwd(), "public")));
@@ -1703,11 +1712,7 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = process.env.PORT || 5000;
-  httpServer.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  httpServer.listen(port, "127.0.0.1", () => {
     log(`serving on port ${port}`);
     console.log(`🚀 SongFuse server started successfully`);
     console.log(`📱 Frontend: http://localhost:${port}`);
