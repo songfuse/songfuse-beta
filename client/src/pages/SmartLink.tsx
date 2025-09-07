@@ -121,6 +121,17 @@ export default function SmartLink() {
 
   const getPlatformLinks = (song: SmartLinkData['songs'][0]) => {
     const links = [];
+    
+    // Check for new platformLinks format first (from external songs)
+    if ((song as any).platformLinks) {
+      return Object.entries((song as any).platformLinks).map(([platform, data]: [string, any]) => ({
+        platform: platform.replace('_', ''),
+        id: data.id,
+        url: data.url
+      }));
+    }
+    
+    // Fallback to old format for existing tracks
     if (song.spotifyId) links.push({ platform: 'spotify', id: song.spotifyId });
     if (song.appleMusicId) links.push({ platform: 'apple', id: song.appleMusicId });
     if (song.youtubeId) links.push({ platform: 'youtube', id: song.youtubeId });
@@ -205,7 +216,7 @@ export default function SmartLink() {
                     </p>
                     
                     <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-                      {getPlatformLinks(promotedTrack).map(({ platform, id }) => {
+                      {getPlatformLinks(promotedTrack).map(({ platform, id, url }) => {
                         const config = platformConfig[platform as keyof typeof platformConfig];
                         const Icon = config.icon;
                         return (
@@ -214,7 +225,7 @@ export default function SmartLink() {
                             variant="outline"
                             size="sm"
                             className={`${config.bgColor} ${config.color} border-current hover:bg-current hover:text-white transition-all`}
-                            onClick={() => window.open(`${config.baseUrl}${id}`, '_blank')}
+                            onClick={() => window.open(url || `${config.baseUrl}${id}`, '_blank')}
                           >
                             <Icon className="w-4 h-4 mr-2" />
                             {config.name}
@@ -279,7 +290,7 @@ export default function SmartLink() {
                         </div>
 
                         <div className="flex gap-2 ml-4">
-                          {platformLinks.slice(0, 3).map(({ platform, id }) => {
+                          {platformLinks.slice(0, 3).map(({ platform, id, url }) => {
                             const config = platformConfig[platform as keyof typeof platformConfig];
                             const Icon = config.icon;
                             return (
@@ -288,7 +299,7 @@ export default function SmartLink() {
                                 variant="ghost"
                                 size="sm"
                                 className={`${config.color} hover:${config.bgColor} p-2`}
-                                onClick={() => window.open(`${config.baseUrl}${id}`, '_blank')}
+                                onClick={() => window.open(url || `${config.baseUrl}${id}`, '_blank')}
                               >
                                 <Icon className="w-4 h-4" />
                               </Button>

@@ -22,7 +22,7 @@ import crypto from "crypto";
 import fetch from "node-fetch";
 import sharp from "sharp";
 import * as fs from "fs";
-import * as db from "./db";
+import { db } from "./db";
 import { tracks, trackPlatformIds } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -3771,177 +3771,22 @@ Please create a playlist that captures the themes, mood, and energy of this news
     }
   });
 
-  // Add external Spotify song to playlist endpoint
-  app.post("/api/playlist/:id/add-external-song", async (req: Request, res: Response) => {
+
+  // Test endpoint to check database connectivity
+  app.post("/api/test-db", async (req: Request, res: Response) => {
     try {
-      const playlistId = parseInt(req.params.id);
-      const { spotifyUrl, userId } = req.body;
-
-      if (!userId) {
-        return res.status(400).json({ message: "userId is required" });
-      }
-      if (!spotifyUrl) {
-        return res.status(400).json({ message: "spotifyUrl is required" });
-      }
-
-      const spotifyTrackRegex = /^https:\/\/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/;
-      const match = spotifyUrl.match(spotifyTrackRegex);
-      if (!match) {
-        return res.status(400).json({ message: "Invalid Spotify track URL format" });
-      }
-      const spotifyTrackId = match[1];
-
-      const playlist = await storage.getPlaylist(playlistId);
-      if (!playlist || playlist.userId !== parseInt(userId)) {
-        return res.status(403).json({ message: "Access denied: You don't own this playlist" });
-      }
-
-      // Try to get real track data from Spotify API
-      let spotifyTrack;
-      
-      try {
-        console.log('🎵 Fetching track data from Spotify Web API...');
-        
-        // Use client credentials flow to get access token
-        const clientId = process.env.SPOTIFY_CLIENT_ID;
-        const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-        
-        if (!clientId || !clientSecret) {
-          throw new Error('Spotify client credentials not configured. Please set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET environment variables.');
-        }
-
-        // Get client credentials token
-        console.log('🔑 Getting Spotify access token...');
-        const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
-          },
-          body: 'grant_type=client_credentials'
-        });
-        
-        if (!tokenResponse.ok) {
-          const errorText = await tokenResponse.text();
-          throw new Error(`Failed to get Spotify access token: ${tokenResponse.status} ${errorText}`);
-        }
-        
-        const tokenData = await tokenResponse.json();
-        console.log('✅ Got Spotify access token');
-        
-        // Fetch track data
-        console.log(`🎵 Fetching track ${spotifyTrackId} from Spotify API...`);
-        const spotifyResponse = await fetch(`https://api.spotify.com/v1/tracks/${spotifyTrackId}`, {
-          headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
-        });
-        
-        if (!spotifyResponse.ok) {
-          const errorText = await spotifyResponse.text();
-          throw new Error(`Spotify API failed: ${spotifyResponse.status} ${errorText}`);
-        }
-        
-        spotifyTrack = await spotifyResponse.json();
-        console.log('✅ Successfully fetched track from Spotify:', spotifyTrack.name, 'by', spotifyTrack.artists[0]?.name);
-        
-      } catch (error) {
-        console.warn('⚠️ Spotify Web API failed:', error.message);
-        console.log('💡 To get full track information, please set up Spotify client credentials:');
-        console.log('   1. Go to https://developer.spotify.com/dashboard');
-        console.log('   2. Create a new app');
-        console.log('   3. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET environment variables');
-        console.log('   4. Restart the server');
-        
-        // Fallback: create basic track info from URL
-        spotifyTrack = {
-          name: `Track ${spotifyTrackId}`,
-          artists: [{ name: 'Unknown Artist' }],
-          album: { name: 'Unknown Album', images: [{ url: null }], release_date: null },
-          external_urls: { spotify: spotifyUrl },
-          duration_ms: 180000, // 3 minutes default
-          popularity: 50
-        };
-      }
-
       const { db } = await import('./db');
+      const { tracks } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
       
-      let trackId: number;
-      
-      // Check if track already exists by looking in trackPlatformIds table
-      const existingPlatformTrack = await db.select()
-        .from(trackPlatformIds)
-        .where(eq(trackPlatformIds.platformId, spotifyTrackId))
-        .limit(1);
-
-      if (existingPlatformTrack.length > 0) {
-        trackId = existingPlatformTrack[0].trackId;
-      } else {
-        const newTrack = await db.insert(tracks).values({
-          title: spotifyTrack.name,
-          duration: Math.floor(spotifyTrack.duration_ms / 1000), // Convert to seconds
-          popularity: spotifyTrack.popularity || 0
-        }).returning();
-        trackId = newTrack[0].id;
-
-        await db.insert(trackPlatformIds).values({
-          trackId: trackId,
-          platform: 'spotify',
-          platformId: spotifyTrackId,
-          platformUrl: spotifyTrack.external_urls?.spotify || null
-        });
-
-        try {
-          const odesliResponse = await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(spotifyUrl)}`);
-          if (odesliResponse.ok) {
-            const odesliData = await odesliResponse.json();
-            const platforms = ['youtube', 'appleMusic', 'amazonMusic', 'tidal', 'deezer'];
-            for (const platform of platforms) {
-              const platformKey = platform === 'appleMusic' ? 'apple_music' : platform === 'amazonMusic' ? 'amazon_music' : platform;
-              if (odesliData.linksByPlatform?.[platform]) {
-                const platformData = odesliData.linksByPlatform[platform];
-                const platformId = platformData.entityUniqueId.split('::').pop() || '';
-                if (platformId) {
-                  await db.insert(trackPlatformIds).values({
-                    trackId: trackId,
-                    platform: platformKey,
-                    platformId: platformId,
-                    platformUrl: platformData.url
-                  });
-                }
-              }
-            }
-          }
-        } catch (odesliError) {
-          console.warn(`Failed to resolve platform links with Odesli for track ${trackId}:`, odesliError);
-        }
-      }
-
-      // Add track to playlist
-      const playlistTracks = await storage.getSmartLinkTracks(`playlist-${playlistId}`);
-      const position = playlistTracks.length;
-      const success = await storage.addTrackToPlaylist(playlistId, trackId, position);
-
-      if (!success) {
-        return res.status(500).json({ message: "Failed to add track to playlist" });
-      }
-
-      res.json({ 
-        success: true, 
-        track: {
-          id: trackId,
-          title: spotifyTrack.name,
-          artist: spotifyTrack.artists[0]?.name || 'External Artist',
-          album: spotifyTrack.album?.name || 'External Album',
-          spotifyId: spotifyTrackId,
-          duration: spotifyTrack.duration_ms,
-          albumCoverImage: spotifyTrack.album?.images?.[0]?.url || null
-        }, 
-        message: `Successfully added "${spotifyTrack.name}" to playlist` 
-      });
+      const testQuery = await db.select().from(tracks).limit(1);
+      res.json({ success: true, count: testQuery.length });
     } catch (error) {
-      console.error("Error adding external song to playlist:", error);
-      res.status(500).json({ message: "Failed to add external song to playlist" });
+      console.error("Test DB error:", error);
+      res.status(500).json({ error: error.message });
     }
   });
+
 
   return httpServer;
 }

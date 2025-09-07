@@ -849,22 +849,61 @@ export class DatabaseStorage implements IStorage {
 
           const [spotifyResult, youtubeResult, appleMusicResult, deezerResult, amazonMusicResult, tidalResult, pandoraResult] = platformQueries;
 
-          // Add the promoted track data to the smart link response
-          (smartLink as any).promotedTrack = {
-            id: promotedTrackData.id,
-            title: promotedTrackData.title,
-            artist: artistNames,
-            album: promotedTrackData.albumTitle,
-            albumCover: promotedTrackData.albumCover,
-            duration: promotedTrackData.duration,
-            spotifyId: spotifyResult[0]?.platformId || null,
-            youtubeId: youtubeResult[0]?.platformId?.replace('YOUTUBE_VIDEO::', '') || null,
-            appleMusicId: appleMusicResult[0]?.platformId?.replace('ITUNES_SONG::', '') || null,
-            deezerId: deezerResult[0]?.platformId?.replace('DEEZER_SONG::', '') || null,
-            amazonMusicId: amazonMusicResult[0]?.platformId?.replace('AMAZON_SONG::', '') || null,
-            tidalId: tidalResult[0]?.platformId?.replace('TIDAL_SONG::', '') || null,
-            pandoraId: pandoraResult[0]?.platformId?.replace('PANDORA_SONG::', '') || null,
-          };
+          // For external songs, we need to get the track data from the platform links
+          // Check if this is an external song by looking for Spotify platform ID
+          const spotifyPlatformId = spotifyResult[0]?.platformId;
+          
+          if (spotifyPlatformId) {
+            // This is likely an external song, get the platform URLs for better data
+            const platformUrls = await db
+              .select()
+              .from(trackPlatformIds)
+              .where(eq(trackPlatformIds.trackId, promotedTrackData.id));
+            
+            // Format platform links
+            const platformLinks: any = {};
+            platformUrls.forEach(link => {
+              platformLinks[link.platform] = {
+                id: link.platformId,
+                url: link.platformUrl
+              };
+            });
+            
+            // Add the promoted track data to the smart link response
+            (smartLink as any).promotedTrack = {
+              id: promotedTrackData.id,
+              title: promotedTrackData.title,
+              artist: artistNames || 'Unknown Artist',
+              album: promotedTrackData.albumTitle || 'Unknown Album',
+              albumCover: promotedTrackData.albumCover,
+              duration: promotedTrackData.duration,
+              spotifyId: spotifyResult[0]?.platformId || null,
+              youtubeId: youtubeResult[0]?.platformId?.replace('YOUTUBE_VIDEO::', '') || null,
+              appleMusicId: appleMusicResult[0]?.platformId?.replace('ITUNES_SONG::', '') || null,
+              deezerId: deezerResult[0]?.platformId?.replace('DEEZER_SONG::', '') || null,
+              amazonMusicId: amazonMusicResult[0]?.platformId?.replace('AMAZON_SONG::', '') || null,
+              tidalId: tidalResult[0]?.platformId?.replace('TIDAL_SONG::', '') || null,
+              pandoraId: pandoraResult[0]?.platformId?.replace('PANDORA_SONG::', '') || null,
+              platformLinks: platformLinks
+            };
+          } else {
+            // Regular track
+            (smartLink as any).promotedTrack = {
+              id: promotedTrackData.id,
+              title: promotedTrackData.title,
+              artist: artistNames,
+              album: promotedTrackData.albumTitle,
+              albumCover: promotedTrackData.albumCover,
+              duration: promotedTrackData.duration,
+              spotifyId: spotifyResult[0]?.platformId || null,
+              youtubeId: youtubeResult[0]?.platformId?.replace('YOUTUBE_VIDEO::', '') || null,
+              appleMusicId: appleMusicResult[0]?.platformId?.replace('ITUNES_SONG::', '') || null,
+              deezerId: deezerResult[0]?.platformId?.replace('DEEZER_SONG::', '') || null,
+              amazonMusicId: amazonMusicResult[0]?.platformId?.replace('AMAZON_SONG::', '') || null,
+              tidalId: tidalResult[0]?.platformId?.replace('TIDAL_SONG::', '') || null,
+              pandoraId: pandoraResult[0]?.platformId?.replace('PANDORA_SONG::', '') || null,
+            };
+          }
         }
       }
 

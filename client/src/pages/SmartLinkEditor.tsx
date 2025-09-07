@@ -28,6 +28,13 @@ interface Track {
   album?: string;
   albumCover?: string;
   duration?: number;
+  // Additional properties that might be present
+  dbId?: number;
+  duration_ms?: number;
+  platformLinks?: any;
+  preview_url?: string;
+  spotifyId?: string;
+  genre?: string;
 }
 
 interface SmartLink {
@@ -47,12 +54,36 @@ interface SmartLinkEditorProps {
   shareId?: string;
 }
 
+// Helper function to normalize track data structure
+const normalizeTrack = (track: any): Track => {
+  return {
+    id: track.id,
+    title: track.title || track.name || 'Unknown Title',
+    artist: track.artist || (track.artists && Array.isArray(track.artists) 
+      ? track.artists.map((a: any) => a.name).join(', ')
+      : track.artist_name || 'Unknown Artist'),
+    album: typeof track.album === 'string' ? track.album : track.album?.name || track.album_name || 'Unknown Album',
+    albumCover: track.albumCover || track.album_cover_image || track.album?.images?.[0]?.url,
+    duration: track.duration || track.duration_ms,
+    // Keep only specific additional properties that are safe to render
+    dbId: track.dbId,
+    duration_ms: track.duration_ms,
+    platformLinks: track.platformLinks,
+    preview_url: track.preview_url,
+    spotifyId: track.spotifyId,
+    genre: track.genre
+  };
+};
+
 export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: propShareId }: SmartLinkEditorProps = {}) {
   const [location, setLocation] = useLocation();
   
   // Use props or fallback to query parameters for backward compatibility
   const shareId = propShareId;
   const playlistId = propPlaylistId;
+  
+  // Debug logging
+  console.log('SmartLinkEditor props:', { propPlaylistId, propShareId, playlistId, shareId });
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -68,9 +99,6 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   
-  // External song functionality
-  const [externalSongUrl, setExternalSongUrl] = useState("");
-  const [isAddingExternalSong, setIsAddingExternalSong] = useState(false);
 
   const isEditing = !!shareId;
 
@@ -95,6 +123,8 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
   const effectivePlaylistId = isEditing 
     ? (existingSmartLink as any)?.playlist?.id || (existingSmartLink as any)?.playlistId
     : playlistId;
+    
+  console.log('SmartLinkEditor effectivePlaylistId:', { isEditing, effectivePlaylistId, playlistId, existingSmartLink });
 
   // Fetch playlist data
   const { data: playlist, isLoading: playlistLoading, error: playlistError } = useQuery({
@@ -138,7 +168,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
         console.log('Found promoted track:', track);
         
         if (track) {
-          setSelectedTrack(track);
+          setSelectedTrack(normalizeTrack(track));
         }
       }
     }
@@ -215,95 +245,14 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
     }
   });
 
-  const handleTrackSelect = (track: Track) => {
-    setSelectedTrack(track);
+  const handleTrackSelect = (track: any) => {
+    const normalizedTrack = normalizeTrack(track);
+    setSelectedTrack(normalizedTrack);
     // Use dbId if available, otherwise fall back to track.id
-    const trackId = (track as any).dbId || track.id;
+    const trackId = track.dbId || track.id;
     setFormData(prev => ({ ...prev, promotedTrackId: trackId }));
   };
 
-  // Add external Spotify song as featured track
-  const handleAddExternalSong = async () => {
-    if (!externalSongUrl.trim()) {
-      toast({
-        title: "Invalid URL",
-        description: "Please enter a valid Spotify track URL",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validate Spotify URL format
-    const spotifyTrackRegex = /^https:\/\/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/;
-    if (!spotifyTrackRegex.test(externalSongUrl)) {
-      toast({
-        title: "Invalid URL",
-        description: "Please enter a valid Spotify track URL (e.g., https://open.spotify.com/track/...)",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsAddingExternalSong(true);
-
-    try {
-      // Get user ID from context
-      const userId = user?.id || 1;
-
-      // Call the API to add external song to playlist first
-      const response = await fetch(`/api/playlist/${effectivePlaylistId}/add-external-song`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          spotifyUrl: externalSongUrl,
-          userId: userId
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add external song');
-      }
-
-      const result = await response.json();
-
-      // Create a track object for the external song
-      const externalTrack: Track = {
-        id: result.track.spotifyId,
-        title: result.track.title || 'Unknown Title',
-        artist: result.track.artist || 'Unknown Artist',
-        album: result.track.album || 'Unknown Album',
-        duration: result.track.duration || 0,
-        albumCover: result.track.albumCoverImage || undefined,
-        dbId: result.track.id,
-        // Add duration_ms for UI compatibility
-        duration_ms: result.track.duration || 0
-      } as any;
-
-      // Set this as the selected track
-      setSelectedTrack(externalTrack);
-      setFormData(prev => ({ ...prev, promotedTrackId: result.track.id }));
-      setExternalSongUrl("");
-
-      toast({
-        title: "External Song Added!",
-        description: `"${result.track.title}" is now featured in your smart link`,
-        variant: "default"
-      });
-
-    } catch (error) {
-      console.error("Error adding external song:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add external song",
-        variant: "destructive"
-      });
-    } finally {
-      setIsAddingExternalSong(false);
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -402,9 +351,98 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
     return (
       <Layout>
         <div className="container px-2 py-4 max-w-6xl">
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            <p className="ml-4">Loading {isEditing ? 'smart link data' : 'playlist data'}...</p>
+          {/* Page Header */}
+          <div className="mb-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-400 to-green-500 bg-clip-text text-transparent">
+              {isEditing ? 'Edit Playlist Sharing Link' : 'Create Playlist Sharing Link'}
+            </h1>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-8 min-h-screen">
+            {/* Left Column - Loading */}
+            <div className="flex-1 space-y-6">
+              <div className="flex items-center justify-center py-20">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p className="ml-4">Loading {isEditing ? 'smart link data' : 'playlist data'}...</p>
+              </div>
+            </div>
+
+            {/* Right Column - Preview & Info - Sticky */}
+            <div className="w-full lg:w-96 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
+              {/* Playlist Sharing Link Preview */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Playlist Sharing Link Preview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-border shadow-sm">
+                      <div className="flex gap-4 items-start">
+                        <div className="flex-shrink-0">
+                          <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center">
+                            <Music className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-semibold text-lg text-foreground mb-1">Loading...</h5>
+                          <p className="text-sm text-muted-foreground">Please wait while we load your playlist data</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Benefits Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Playlist Sharing Link Benefits</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <MessageCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Optimized for Messaging</p>
+                        <p className="text-sm text-muted-foreground">
+                          Sub-100KB images load perfectly in WhatsApp, Telegram, and other messaging apps
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Globe className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Social Media Ready</p>
+                        <p className="text-sm text-muted-foreground">
+                          Optimized Open Graph images for Facebook, Twitter, and LinkedIn
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Eye className="h-5 w-5 text-purple-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Analytics Tracking</p>
+                        <p className="text-sm text-muted-foreground">
+                          Track views and engagement on your shared playlists
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Music className="h-5 w-5 text-pink-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Featured Track Highlight</p>
+                        <p className="text-sm text-muted-foreground">
+                          Showcase your best track with rich preview cards
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </Layout>
@@ -415,12 +453,77 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
     return (
       <Layout>
         <div className="container px-2 py-4 max-w-6xl">
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold mb-4 text-red-600">Error Loading Playlist Sharing Link</h2>
-            <p className="mb-4 text-gray-600">{smartLinkError.message}</p>
-            <Button onClick={() => setLocation('/smart-links')}>
-              Back to Playlist Sharing Links
-            </Button>
+          {/* Page Header */}
+          <div className="mb-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-400 to-green-500 bg-clip-text text-transparent">
+              {isEditing ? 'Edit Playlist Sharing Link' : 'Create Playlist Sharing Link'}
+            </h1>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-8 min-h-screen">
+            {/* Left Column - Error */}
+            <div className="flex-1 space-y-6">
+              <div className="text-center py-20">
+                <h2 className="text-2xl font-bold mb-4 text-red-600">Error Loading Playlist Sharing Link</h2>
+                <p className="mb-4 text-gray-600">{smartLinkError.message}</p>
+                <Button onClick={() => setLocation('/smart-links')}>
+                  Back to Playlist Sharing Links
+                </Button>
+              </div>
+            </div>
+
+            {/* Right Column - Preview & Info - Sticky */}
+            <div className="w-full lg:w-96 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
+              {/* Benefits Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Playlist Sharing Link Benefits</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <MessageCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Optimized for Messaging</p>
+                        <p className="text-sm text-muted-foreground">
+                          Sub-100KB images load perfectly in WhatsApp, Telegram, and other messaging apps
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Globe className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Social Media Ready</p>
+                        <p className="text-sm text-muted-foreground">
+                          Optimized Open Graph images for Facebook, Twitter, and LinkedIn
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Eye className="h-5 w-5 text-purple-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Analytics Tracking</p>
+                        <p className="text-sm text-muted-foreground">
+                          Track views and engagement on your shared playlists
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Music className="h-5 w-5 text-pink-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Featured Track Highlight</p>
+                        <p className="text-sm text-muted-foreground">
+                          Showcase your best track with rich preview cards
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </Layout>
@@ -431,12 +534,77 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
     return (
       <Layout>
         <div className="container px-2 py-4 max-w-6xl">
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold mb-4">Playlist Sharing Link Not Found</h2>
-            <p className="mb-4 text-gray-600">The playlist sharing link you're trying to edit could not be found.</p>
-            <Button onClick={() => setLocation('/smart-links')}>
-              Back to Playlist Sharing Links
-            </Button>
+          {/* Page Header */}
+          <div className="mb-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-400 to-green-500 bg-clip-text text-transparent">
+              Edit Playlist Sharing Link
+            </h1>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-8 min-h-screen">
+            {/* Left Column - Error */}
+            <div className="flex-1 space-y-6">
+              <div className="text-center py-20">
+                <h2 className="text-2xl font-bold mb-4">Playlist Sharing Link Not Found</h2>
+                <p className="mb-4 text-gray-600">The playlist sharing link you're trying to edit could not be found.</p>
+                <Button onClick={() => setLocation('/smart-links')}>
+                  Back to Playlist Sharing Links
+                </Button>
+              </div>
+            </div>
+
+            {/* Right Column - Preview & Info - Sticky */}
+            <div className="w-full lg:w-96 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
+              {/* Benefits Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Playlist Sharing Link Benefits</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <MessageCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Optimized for Messaging</p>
+                        <p className="text-sm text-muted-foreground">
+                          Sub-100KB images load perfectly in WhatsApp, Telegram, and other messaging apps
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Globe className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Social Media Ready</p>
+                        <p className="text-sm text-muted-foreground">
+                          Optimized Open Graph images for Facebook, Twitter, and LinkedIn
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Eye className="h-5 w-5 text-purple-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Analytics Tracking</p>
+                        <p className="text-sm text-muted-foreground">
+                          Track views and engagement on your shared playlists
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Music className="h-5 w-5 text-pink-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Featured Track Highlight</p>
+                        <p className="text-sm text-muted-foreground">
+                          Showcase your best track with rich preview cards
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </Layout>
@@ -447,12 +615,77 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
     return (
       <Layout>
         <div className="container px-2 py-4 max-w-6xl">
-          <div className="text-center py-20">
-            <h2 className="text-2xl font-bold mb-4">Playlist Not Found</h2>
-            <p className="mb-4 text-gray-600">Effective playlist ID: {effectivePlaylistId}</p>
-            <Button onClick={() => setLocation('/smart-links')}>
-              Back to Playlist Sharing Links
-            </Button>
+          {/* Page Header */}
+          <div className="mb-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-400 to-green-500 bg-clip-text text-transparent">
+              Create Playlist Sharing Link
+            </h1>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-8 min-h-screen">
+            {/* Left Column - Error */}
+            <div className="flex-1 space-y-6">
+              <div className="text-center py-20">
+                <h2 className="text-2xl font-bold mb-4">Playlist Not Found</h2>
+                <p className="mb-4 text-gray-600">Effective playlist ID: {effectivePlaylistId}</p>
+                <Button onClick={() => setLocation('/smart-links')}>
+                  Back to Playlist Sharing Links
+                </Button>
+              </div>
+            </div>
+
+            {/* Right Column - Preview & Info - Sticky */}
+            <div className="w-full lg:w-96 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
+              {/* Benefits Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Playlist Sharing Link Benefits</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <MessageCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Optimized for Messaging</p>
+                        <p className="text-sm text-muted-foreground">
+                          Sub-100KB images load perfectly in WhatsApp, Telegram, and other messaging apps
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Globe className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Social Media Ready</p>
+                        <p className="text-sm text-muted-foreground">
+                          Optimized Open Graph images for Facebook, Twitter, and LinkedIn
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Eye className="h-5 w-5 text-purple-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Analytics Tracking</p>
+                        <p className="text-sm text-muted-foreground">
+                          Track views and engagement on your shared playlists
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Music className="h-5 w-5 text-pink-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">Featured Track Highlight</p>
+                        <p className="text-sm text-muted-foreground">
+                          Showcase your best track with rich preview cards
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </Layout>
@@ -548,9 +781,9 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
           </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="flex flex-col lg:flex-row gap-8 min-h-screen">
           {/* Left Column - Form */}
-          <div className="space-y-6">
+          <div className="flex-1 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>
@@ -622,139 +855,63 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
                       Choose which track to highlight in your smart link preview
                     </p>
                     
-                    {selectedTrack && (
-                      <div className="mb-4 p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20">
-                        <div className="flex items-center space-x-4">
-                          <div className="relative">
-                            {(selectedTrack as any).album_cover_image ? (
-                              <img 
-                                src={(selectedTrack as any).album_cover_image} 
-                                alt={(selectedTrack as any).album_name || 'Album cover'}
-                                className="w-16 h-16 rounded-lg object-cover shadow-md"
-                              />
-                            ) : (
-                              <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
-                                <Music className="h-6 w-6 text-muted-foreground" />
-                              </div>
-                            )}
-                            <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-1">
-                              <Check className="h-3 w-3" />
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-lg truncate">{selectedTrack.title}</p>
-                            <p className="text-sm text-muted-foreground truncate">{selectedTrack.artist}</p>
-                            {(selectedTrack as any).album_name && (
-                              <p className="text-xs text-muted-foreground truncate mt-1">
-                                from "{(selectedTrack as any).album_name}"
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground">Duration</div>
-                            <div className="font-mono text-sm">
-                              {(selectedTrack as any).duration_ms ? 
-                                `${Math.floor((selectedTrack as any).duration_ms / 60000)}:${String(Math.floor(((selectedTrack as any).duration_ms % 60000) / 1000)).padStart(2, '0')}` 
-                                : '0:00'
-                              }
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3 text-xs text-primary/80 font-medium">
-                          ✨ This track will be featured in your smart link preview
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Add External Song Section */}
-                    <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
-                      <div className="space-y-3">
-                        <div className="flex items-center space-x-2">
-                          <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          <h4 className="font-medium text-gray-900 dark:text-white">Feature External Song</h4>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Add any song from Spotify to feature in your smart link. We'll automatically resolve all platform links.
-                        </p>
-                        <div className="flex space-x-2">
-                          <Input
-                            placeholder="https://open.spotify.com/track/..."
-                            value={externalSongUrl}
-                            onChange={(e) => setExternalSongUrl(e.target.value)}
-                            className="flex-1"
-                          />
-                          <Button
-                            onClick={handleAddExternalSong}
-                            disabled={!externalSongUrl || isAddingExternalSong}
-                            size="sm"
-                          >
-                            {isAddingExternalSong ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            ) : (
-                              <>
-                                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                                </svg>
-                                Add Song
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
                     
                     <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-2">
-                      {(playlist as any)?.tracks?.map((track: Track) => (
-                        <div
-                          key={track.id}
-                          onClick={() => handleTrackSelect(track)}
-                          className={`p-3 rounded-lg cursor-pointer transition-all border ${
-                            selectedTrack?.id === track.id
-                              ? 'bg-primary/10 border-primary'
-                              : 'hover:bg-muted'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="relative flex-shrink-0">
-                              {(track as any).album_cover_image ? (
-                                <img 
-                                  src={(track as any).album_cover_image} 
-                                  alt={(track as any).album_name || 'Album cover'}
-                                  className="w-12 h-12 rounded-lg object-cover"
-                                />
-                              ) : (
-                                <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                                  <Music className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{track.title}</p>
-                              <p className="text-sm text-muted-foreground truncate">{track.artist}</p>
-                              {(track as any).album_name && (
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {(track as any).album_name}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center space-x-2 flex-shrink-0">
-                              <div className="text-right">
-                                <div className="text-xs font-mono text-muted-foreground">
-                                  {(track as any).duration_ms ? 
-                                    `${Math.floor((track as any).duration_ms / 60000)}:${String(Math.floor(((track as any).duration_ms % 60000) / 1000)).padStart(2, '0')}` 
-                                    : '0:00'
-                                  }
-                                </div>
+                      {(playlist as any)?.tracks?.map((track: any) => {
+                        const normalizedTrack = normalizeTrack(track);
+                        return (
+                          <div
+                            key={track.id}
+                            onClick={() => handleTrackSelect(track)}
+                            className={`p-3 rounded-lg cursor-pointer transition-all border ${
+                              selectedTrack?.id === track.id
+                                ? 'bg-primary/10 border-primary'
+                                : 'hover:bg-muted'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="relative flex-shrink-0">
+                                {normalizedTrack.albumCover ? (
+                                  <img 
+                                    src={normalizedTrack.albumCover} 
+                                    alt={normalizedTrack.album || 'Album cover'}
+                                    className="w-12 h-12 rounded-lg object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                                    <Music className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                )}
                               </div>
-                              {selectedTrack?.id === track.id && (
-                                <Check className="h-4 w-4 text-primary" />
-                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{normalizedTrack.title}</p>
+                                <p className="text-sm text-muted-foreground truncate">{normalizedTrack.artist}</p>
+                                {normalizedTrack.album && normalizedTrack.album !== 'Unknown Album' && (
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {normalizedTrack.album}
+                                  </p>
+                                )}
+                              </div>
+                               <div className="flex items-center space-x-2 flex-shrink-0">
+                                 <div className="text-right">
+                                   <div className="text-xs font-mono text-muted-foreground">
+                                     {(track as any).duration_ms ? 
+                                       `${Math.floor((track as any).duration_ms / 60000)}:${String(Math.floor(((track as any).duration_ms % 60000) / 1000)).padStart(2, '0')}` 
+                                       : (track.duration ? 
+                                         `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}`
+                                         : '0:00')
+                                     }
+                                   </div>
+                                 </div>
+                                 {selectedTrack?.id === track.id && (
+                                   <Check className="h-4 w-4 text-primary" />
+                                 )}
+                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -781,7 +938,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
           </div>
 
           {/* Right Column - Preview & Info */}
-          <div className="space-y-6">
+          <div className="w-full lg:w-96 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
             {/* Playlist Sharing Link Preview */}
             <Card>
               <CardHeader>
@@ -791,29 +948,85 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="bg-muted/50 dark:bg-muted/30 rounded-lg p-4 border border-border">
-                    <div className="space-y-3">
-                      {/* Optimized thumbnail for smart link - large and on top */}
+                  {/* Main Playlist Preview */}
+                  <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-border shadow-sm">
+                    <div className="flex gap-4 items-start">
+                      {/* Playlist Cover */}
                       {(formData.customCoverImage || (playlist as any)?.coverImage) && (
-                        <div className="flex justify-center">
+                        <div className="flex-shrink-0">
                           <img 
                             src={`/api/thumbnail?url=${encodeURIComponent(formData.customCoverImage || (playlist as any)?.coverImage)}&size=256`}
-                            alt="Smart link preview"
-                            className="w-32 h-32 rounded-xl object-cover border border-border shadow-md"
+                            alt="Playlist cover"
+                            className="w-24 h-24 rounded-lg object-cover shadow-sm"
                           />
                         </div>
                       )}
                       
-                      <div className="text-center space-y-2">
-                        <h5 className="font-medium text-base text-foreground">
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-semibold text-lg text-foreground mb-1">
                           {formData.title || (playlist as any)?.title}
                         </h5>
-                        <p className="text-sm text-muted-foreground line-clamp-3">
+                        <p className="text-sm text-muted-foreground line-clamp-2">
                           {formData.description || (playlist as any)?.description || `Discover amazing music with ${(playlist as any)?.tracks?.length || 0} tracks`}
                         </p>
                       </div>
                     </div>
                   </div>
+
+                  {/* Featured Track Preview */}
+                  {selectedTrack && (
+                    <div className="bg-white dark:bg-gray-900 rounded-xl p-3 border border-border shadow-sm">
+                      <div className="flex gap-4 items-center">
+                        <div className="flex-shrink-0">
+                          {selectedTrack.albumCover ? (
+                            <img 
+                              src={selectedTrack.albumCover} 
+                              alt={selectedTrack.album || 'Album cover'}
+                              className="w-16 h-16 rounded-lg object-cover shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
+                              <Music className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-foreground truncate">{selectedTrack.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{selectedTrack.artist}</p>
+                          {selectedTrack.album && selectedTrack.album !== 'Unknown Album' && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {selectedTrack.album}
+                            </p>
+                          )}
+                          {/* Genre */}
+                          {(selectedTrack as any).genre && (
+                            <div className="mt-1">
+                              <span className="text-xs text-muted-foreground">
+                                {(selectedTrack as any).genre}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
+                         {/* Duration on the right */}
+                         {(selectedTrack as any).duration_ms && (
+                           <div className="flex-shrink-0 text-right">
+                             <span className="text-xs text-muted-foreground font-mono">
+                               {Math.floor((selectedTrack as any).duration_ms / 60000)}:{String(Math.floor(((selectedTrack as any).duration_ms % 60000) / 1000)).padStart(2, '0')}
+                             </span>
+                           </div>
+                         )}
+                         {selectedTrack.duration && !(selectedTrack as any).duration_ms && (
+                           <div className="flex-shrink-0 text-right">
+                             <span className="text-xs text-muted-foreground font-mono">
+                               {Math.floor(selectedTrack.duration / 60)}:{String(selectedTrack.duration % 60).padStart(2, '0')}
+                             </span>
+                           </div>
+                         )}
+                      </div>
+                    </div>
+                  )}
                   
                   
                 </div>
