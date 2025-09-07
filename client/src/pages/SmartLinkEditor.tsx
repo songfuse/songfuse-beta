@@ -98,6 +98,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  const [trackSearchQuery, setTrackSearchQuery] = useState('');
   
 
   const isEditing = !!shareId;
@@ -253,6 +254,20 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
     setFormData(prev => ({ ...prev, promotedTrackId: trackId }));
   };
 
+  // Filter tracks based on search query
+  const filteredTracks = (playlist as any)?.tracks?.filter((track: any) => {
+    if (!trackSearchQuery.trim()) return true;
+    
+    const normalizedTrack = normalizeTrack(track);
+    const searchLower = trackSearchQuery.toLowerCase();
+    
+    return (
+      normalizedTrack.title.toLowerCase().includes(searchLower) ||
+      normalizedTrack.artist.toLowerCase().includes(searchLower) ||
+      (normalizedTrack.album && normalizedTrack.album.toLowerCase().includes(searchLower))
+    );
+  }) || [];
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -360,7 +375,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
 
           <div className="flex flex-col lg:flex-row gap-8 min-h-screen">
             {/* Left Column - Loading */}
-            <div className="flex-1 space-y-6">
+            <div className="w-full lg:w-1/2 space-y-6">
               <div className="flex items-center justify-center py-20">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                 <p className="ml-4">Loading {isEditing ? 'smart link data' : 'playlist data'}...</p>
@@ -368,7 +383,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
             </div>
 
             {/* Right Column - Preview & Info - Sticky */}
-            <div className="w-full lg:w-96 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
+            <div className="w-full lg:w-1/2 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
               {/* Playlist Sharing Link Preview */}
               <Card>
                 <CardHeader>
@@ -462,7 +477,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
 
           <div className="flex flex-col lg:flex-row gap-8 min-h-screen">
             {/* Left Column - Error */}
-            <div className="flex-1 space-y-6">
+            <div className="w-full lg:w-1/2 space-y-6">
               <div className="text-center py-20">
                 <h2 className="text-2xl font-bold mb-4 text-red-600">Error Loading Playlist Sharing Link</h2>
                 <p className="mb-4 text-gray-600">{smartLinkError.message}</p>
@@ -473,7 +488,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
             </div>
 
             {/* Right Column - Preview & Info - Sticky */}
-            <div className="w-full lg:w-96 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
+            <div className="w-full lg:w-1/2 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
               {/* Benefits Card */}
               <Card>
                 <CardHeader>
@@ -543,7 +558,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
 
           <div className="flex flex-col lg:flex-row gap-8 min-h-screen">
             {/* Left Column - Error */}
-            <div className="flex-1 space-y-6">
+            <div className="w-full lg:w-1/2 space-y-6">
               <div className="text-center py-20">
                 <h2 className="text-2xl font-bold mb-4">Playlist Sharing Link Not Found</h2>
                 <p className="mb-4 text-gray-600">The playlist sharing link you're trying to edit could not be found.</p>
@@ -554,7 +569,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
             </div>
 
             {/* Right Column - Preview & Info - Sticky */}
-            <div className="w-full lg:w-96 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
+            <div className="w-full lg:w-1/2 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
               {/* Benefits Card */}
               <Card>
                 <CardHeader>
@@ -624,7 +639,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
 
           <div className="flex flex-col lg:flex-row gap-8 min-h-screen">
             {/* Left Column - Error */}
-            <div className="flex-1 space-y-6">
+            <div className="w-full lg:w-1/2 space-y-6">
               <div className="text-center py-20">
                 <h2 className="text-2xl font-bold mb-4">Playlist Not Found</h2>
                 <p className="mb-4 text-gray-600">Effective playlist ID: {effectivePlaylistId}</p>
@@ -635,7 +650,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
             </div>
 
             {/* Right Column - Preview & Info - Sticky */}
-            <div className="w-full lg:w-96 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
+            <div className="w-full lg:w-1/2 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
               {/* Benefits Card */}
               <Card>
                 <CardHeader>
@@ -736,7 +751,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
                       disabled={!generatedLink}
                       className="shrink-0 border-green-300 text-green-700 hover:bg-green-100 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-900"
                     >
-                      <Copy className="h-4 w-4" />
+                      Copy
                     </Button>
                   </div>
                 </div>
@@ -748,34 +763,10 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
                     className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-3 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                     size="lg"
                   >
-                    <ExternalLink className="h-5 w-5 mr-3" />
                     Preview Your Playlist Sharing Link
                   </Button>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-green-200 dark:border-green-700">
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <MessageCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Messaging Apps</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">WhatsApp, Telegram</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <Globe className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Social Media</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Facebook, Twitter</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <Eye className="h-6 w-6 text-pink-600 dark:text-pink-400" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Analytics</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Track engagement</p>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -783,7 +774,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
 
         <div className="flex flex-col lg:flex-row gap-8 min-h-screen">
           {/* Left Column - Form */}
-          <div className="flex-1 space-y-6">
+          <div className="w-full lg:w-1/2 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>
@@ -819,10 +810,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
                             Generating...
                           </>
                         ) : (
-                          <>
-                            <Wand2 className="h-3 w-3 mr-2" />
-                            AI Generate
-                          </>
+                          'AI Generate'
                         )}
                       </Button>
                     </div>
@@ -855,63 +843,79 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
                       Choose which track to highlight in your smart link preview
                     </p>
                     
-
+                    {/* Search Input */}
+                    <div className="mb-4">
+                      <Input
+                        value={trackSearchQuery}
+                        onChange={(e) => setTrackSearchQuery(e.target.value)}
+                        placeholder="Search tracks by title, artist, or album..."
+                        className="w-full"
+                      />
+                    </div>
                     
-                    <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-2">
-                      {(playlist as any)?.tracks?.map((track: any) => {
-                        const normalizedTrack = normalizeTrack(track);
-                        return (
-                          <div
-                            key={track.id}
-                            onClick={() => handleTrackSelect(track)}
-                            className={`p-3 rounded-lg cursor-pointer transition-all border ${
-                              selectedTrack?.id === track.id
-                                ? 'bg-primary/10 border-primary'
-                                : 'hover:bg-muted'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-3">
-                              <div className="relative flex-shrink-0">
-                                {normalizedTrack.albumCover ? (
-                                  <img 
-                                    src={normalizedTrack.albumCover} 
-                                    alt={normalizedTrack.album || 'Album cover'}
-                                    className="w-12 h-12 rounded-lg object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                                    <Music className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate">{normalizedTrack.title}</p>
-                                <p className="text-sm text-muted-foreground truncate">{normalizedTrack.artist}</p>
-                                {normalizedTrack.album && normalizedTrack.album !== 'Unknown Album' && (
-                                  <p className="text-xs text-muted-foreground truncate">
-                                    {normalizedTrack.album}
-                                  </p>
-                                )}
-                              </div>
-                               <div className="flex items-center space-x-2 flex-shrink-0">
-                                 <div className="text-right">
-                                   <div className="text-xs font-mono text-muted-foreground">
-                                     {(track as any).duration_ms ? 
-                                       `${Math.floor((track as any).duration_ms / 60000)}:${String(Math.floor(((track as any).duration_ms % 60000) / 1000)).padStart(2, '0')}` 
-                                       : (track.duration ? 
-                                         `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}`
-                                         : '0:00')
-                                     }
+                    <div className="max-h-80 overflow-y-auto space-y-2 border rounded-lg p-2">
+                      {filteredTracks.length > 0 ? (
+                        filteredTracks.map((track: any) => {
+                          const normalizedTrack = normalizeTrack(track);
+                          return (
+                            <div
+                              key={track.id}
+                              onClick={() => handleTrackSelect(track)}
+                              className={`p-3 rounded-lg cursor-pointer transition-all border ${
+                                selectedTrack?.id === track.id
+                                  ? 'bg-primary/10 border-primary'
+                                  : 'hover:bg-muted'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div className="relative flex-shrink-0">
+                                  {normalizedTrack.albumCover ? (
+                                    <img 
+                                      src={normalizedTrack.albumCover} 
+                                      alt={normalizedTrack.album || 'Album cover'}
+                                      className="w-12 h-12 rounded-lg object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                                      <Music className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{normalizedTrack.title}</p>
+                                  <p className="text-sm text-muted-foreground truncate">{normalizedTrack.artist}</p>
+                                  {normalizedTrack.album && normalizedTrack.album !== 'Unknown Album' && (
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {normalizedTrack.album}
+                                    </p>
+                                  )}
+                                </div>
+                                 <div className="flex items-center space-x-2 flex-shrink-0">
+                                   <div className="text-right">
+                                     <div className="text-xs font-mono text-muted-foreground">
+                                       {(track as any).duration_ms ? 
+                                         `${Math.floor((track as any).duration_ms / 60000)}:${String(Math.floor(((track as any).duration_ms % 60000) / 1000)).padStart(2, '0')}` 
+                                         : (track.duration ? 
+                                           `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}`
+                                           : '0:00')
+                                       }
+                                     </div>
                                    </div>
+                                   {selectedTrack?.id === track.id && (
+                                     <Check className="h-4 w-4 text-primary" />
+                                   )}
                                  </div>
-                                 {selectedTrack?.id === track.id && (
-                                   <Check className="h-4 w-4 text-primary" />
-                                 )}
-                               </div>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Music className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No tracks found matching "{trackSearchQuery}"</p>
+                          <p className="text-xs mt-1">Try searching by title, artist, or album name</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -926,10 +930,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
                         <span>{isEditing ? 'Updating...' : 'Creating...'}</span>
                       </div>
                     ) : (
-                      <div className="flex items-center space-x-2">
-                        <Sparkles className="h-4 w-4" />
-                        <span>{isEditing ? 'Update Playlist Sharing Link' : 'Create Playlist Sharing Link'}</span>
-                      </div>
+                      <span>{isEditing ? 'Update Playlist Sharing Link' : 'Create Playlist Sharing Link'}</span>
                     )}
                   </Button>
                 </form>
@@ -938,7 +939,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
           </div>
 
           {/* Right Column - Preview & Info */}
-          <div className="w-full lg:w-96 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
+          <div className="w-full lg:w-1/2 space-y-6 sticky top-4 self-start max-h-screen overflow-y-auto">
             {/* Playlist Sharing Link Preview */}
             <Card>
               <CardHeader>

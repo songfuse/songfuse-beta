@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, ExternalLink, Music, Play } from 'lucide-react';
+import { Calendar, Music } from 'lucide-react';
 import PlaylistCoverPlaceholder from './PlaylistCoverPlaceholder';
 import SpotifyPlaylistCover from './SpotifyPlaylistCover';
 import SpotifyBadge from './SpotifyBadge';
@@ -73,7 +73,7 @@ const PlaylistCard: React.FC<PlaylistCardProps> = ({
         {showActions && (
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100">
             {playlist.spotifyUrl && (
-              <Button 
+              <Button
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -82,7 +82,7 @@ const PlaylistCard: React.FC<PlaylistCardProps> = ({
                 className="bg-[#1DB954] hover:bg-[#1ed760] text-white rounded-full p-3 mr-2"
                 size="icon"
               >
-                <ExternalLink className="h-5 w-5" />
+                Open
               </Button>
             )}
             
@@ -94,7 +94,7 @@ const PlaylistCard: React.FC<PlaylistCardProps> = ({
               className="bg-[#d02b31] hover:bg-[#d02b31]/80 text-white rounded-full p-3"
               size="icon"
             >
-              <Play className="h-5 w-5" />
+              Play
             </Button>
           </div>
         )}

@@ -492,8 +492,20 @@ function analyzePlaylistContext(title: string, description: string, artists: str
   };
 }
 
+// Style rotation tracking to prevent repetitive patterns
+let styleRotationIndex = 0;
+const styleRotationHistory: string[] = [];
+
+// Diversity analytics tracking
+const diversityStats = {
+  artStylesUsed: new Map<string, number>(),
+  colorPalettesUsed: new Map<string, number>(),
+  typographyStylesUsed: new Map<string, number>(),
+  totalGenerations: 0
+};
+
 /**
- * Generate brand-neutral playlist cover image prompt
+ * Generate brand-neutral playlist cover image prompt with enhanced diversity
  */
 function generatePlaylistCoverPrompt(
   title: string, 
@@ -502,41 +514,255 @@ function generatePlaylistCoverPrompt(
   audience: string, 
   userPrompt?: string
 ): string {
-  // Rotating focus prompts for variety (abstract and inclusive)
-  const focusPrompts = [
+  // Enhanced art styles for maximum diversity
+  const artStyles = [
+    // Abstract & Geometric
     "abstract geometric shapes with neon lighting effects",
     "colorful abstract forms in collage style with paint splashes", 
     "surreal cosmic landscape with abstract geometric patterns",
-    "dreamy abstract composition with glowing elements"
+    "dreamy abstract composition with glowing elements",
+    "minimalist geometric design with bold color blocks",
+    "fluid organic shapes with metallic accents",
+    
+    // Cultural & Artistic Movements
+    "art nouveau inspired floral patterns with gold accents",
+    "japanese ukiyo-e style with modern color palette",
+    "african textile patterns with contemporary geometric elements",
+    "scandinavian minimalist design with nature motifs",
+    "mexican folk art inspired vibrant patterns",
+    "indian mandala patterns with psychedelic colors",
+    "chinese ink painting style with modern digital effects",
+    "islamic geometric patterns with contemporary colors",
+    
+    // Photography & Mixed Media
+    "vintage film photography aesthetic with grain texture",
+    "double exposure photography with music elements",
+    "polaroid collage style with handwritten elements",
+    "darkroom experimental photography with light leaks",
+    "macro photography of textured surfaces",
+    "silhouette photography with dramatic lighting",
+    
+    // Digital Art Styles
+    "cyberpunk neon cityscape with holographic elements",
+    "retro synthwave design with grid patterns",
+    "glitch art aesthetic with digital distortion",
+    "3D rendered objects with surreal lighting",
+    "pixel art style with modern color palette",
+    "vector illustration with clean lines and gradients",
+    
+    // Nature & Organic
+    "botanical illustrations with watercolor effects",
+    "crystal formations with prismatic light effects",
+    "ocean waves with iridescent colors",
+    "forest silhouettes with ethereal lighting",
+    "mountain landscapes with aurora effects",
+    "desert dunes with mirage-like distortions",
+    
+    // Vintage & Retro
+    "1950s advertising poster style with bold typography",
+    "1970s psychedelic poster art with flowing patterns",
+    "1980s neon sign aesthetic with grid backgrounds",
+    "1990s grunge design with distressed textures",
+    "vintage travel poster style with modern colors",
+    "art deco inspired geometric patterns with metallic tones"
   ];
   
-  // Randomize color palettes
+  // Enhanced color palettes for diverse moods and cultures
   const colorPalettes = [
+    // Vibrant & Electric
     "electric blue and hot pink",
     "vivid orange and teal", 
     "galactic purple and neon green",
     "neon yellow and deep purple",
     "bright cyan and magenta",
-    "lime green and electric blue"
+    "lime green and electric blue",
+    
+    // Earth & Natural
+    "forest green and warm gold",
+    "deep ocean blue and coral",
+    "sunset orange and sage green",
+    "terracotta and cream",
+    "moss green and rust",
+    "sand beige and turquoise",
+    
+    // Monochrome & Sophisticated
+    "black and white with silver accents",
+    "charcoal gray and electric blue",
+    "deep navy and gold",
+    "cream and dark brown",
+    "white and metallic silver",
+    "black and neon yellow",
+    
+    // Pastel & Soft
+    "lavender and mint green",
+    "peach and sky blue",
+    "rose pink and powder blue",
+    "soft yellow and lilac",
+    "sage green and blush pink",
+    "cream and dusty rose",
+    
+    // Cultural & Regional
+    "crimson red and gold (chinese new year)",
+    "deep purple and saffron (indian festival)",
+    "emerald green and white (celtic)",
+    "royal blue and white (japanese)",
+    "burgundy and cream (vintage european)",
+    "turquoise and coral (mexican)",
+    
+    // Moody & Atmospheric
+    "midnight blue and silver",
+    "deep purple and copper",
+    "dark green and bronze",
+    "maroon and gold",
+    "navy and rose gold",
+    "black and iridescent"
   ];
   
-  // Vary typography styles
+  // Enhanced typography styles for global diversity
   const typographyStyles = [
+    // Modern & Digital
     "graffiti-inspired lettering",
     "clean futuristic sans serif",
-    "hand-painted brush script",
     "bold geometric typography",
     "neon glow lettering",
-    "artistic calligraphy"
+    "3D extruded text effects",
+    "holographic text with rainbow colors",
+    
+    // Hand-drawn & Artistic
+    "hand-painted brush script",
+    "artistic calligraphy",
+    "chalk lettering on textured background",
+    "watercolor text with bleeding edges",
+    "charcoal sketch lettering",
+    "ink wash calligraphy",
+    
+    // Cultural & Regional
+    "japanese brush stroke lettering",
+    "arabic calligraphy inspired",
+    "cyrillic typography style",
+    "chinese seal script influence",
+    "hindi devanagari inspired",
+    "latin script with cultural flourishes",
+    
+    // Vintage & Retro
+    "1950s diner lettering",
+    "art deco typography",
+    "vintage circus poster style",
+    "typewriter font with ink smudges",
+    "vintage movie title style",
+    "retro neon sign typography",
+    
+    // Organic & Natural
+    "wood grain text effect",
+    "stone carved lettering",
+    "moss covered text",
+    "crystal formation typography",
+    "leaf and vine lettering",
+    "water droplet text effects",
+    
+    // Experimental & Abstract
+    "melting text with liquid effects",
+    "fragmented lettering",
+    "mirror reflection typography",
+    "shadow play lettering",
+    "transparent glass text",
+    "smoke and fire lettering"
   ];
   
-  // Randomly select elements for variety
-  const randomFocus = focusPrompts[Math.floor(Math.random() * focusPrompts.length)];
-  const randomColors = colorPalettes[Math.floor(Math.random() * colorPalettes.length)];
-  const randomTypography = typographyStyles[Math.floor(Math.random() * typographyStyles.length)];
+  // Mood-specific style selection for better context matching
+  const moodStyleMap = {
+    'chill': ['botanical', 'watercolor', 'soft pastels', 'organic'],
+    'energetic': ['neon', 'cyberpunk', 'electric', 'bold geometric'],
+    'emotional': ['watercolor', 'soft', 'melting', 'atmospheric'],
+    'romantic': ['art nouveau', 'floral', 'soft pastels', 'elegant'],
+    'party': ['neon', 'psychedelic', 'vibrant', 'retro'],
+    'nostalgic': ['vintage', 'retro', 'film grain', 'sepia'],
+    'dark': ['gothic', 'moody', 'monochrome', 'dramatic']
+  };
   
-  // Build the dynamic prompt (inclusive and abstract)
-  let basePrompt = `A vibrant, highly stylized pop-art neon illustration, with surreal abstract elements and cosmic vibes. Dynamic and colorful, inspired by modern digital art and contemporary design. Include the playlist title and description in bold, artistic typography integrated into the design. Abstract and geometric design only, no human figures or faces.`;
+  // Genre-specific style enhancement
+  const genreStyleMap = {
+    'hip hop': ['graffiti', 'street art', 'urban', 'bold'],
+    'r&b': ['smooth', 'elegant', 'sophisticated', 'gold accents'],
+    'pop': ['bright', 'vibrant', 'modern', 'clean'],
+    'rock': ['grunge', 'distressed', 'bold', 'edgy'],
+    'electronic': ['cyberpunk', 'neon', 'futuristic', 'digital'],
+    'indie': ['handmade', 'organic', 'artistic', 'unique'],
+    'latin': ['vibrant', 'cultural', 'festive', 'warm colors'],
+    'jazz': ['sophisticated', 'vintage', 'elegant', 'moody'],
+    'country': ['rustic', 'natural', 'warm', 'earthy'],
+    'classical': ['elegant', 'sophisticated', 'timeless', 'refined']
+  };
+  
+  // Intelligent style selection based on mood and genre
+  let selectedStyles = artStyles;
+  if (moodStyleMap[mood]) {
+    selectedStyles = artStyles.filter(style => 
+      moodStyleMap[mood].some(keyword => style.toLowerCase().includes(keyword))
+    );
+  }
+  if (genreStyleMap[genre]) {
+    selectedStyles = selectedStyles.filter(style => 
+      genreStyleMap[genre].some(keyword => style.toLowerCase().includes(keyword))
+    );
+  }
+  
+  // Fallback to all styles if filtering results in empty array
+  if (selectedStyles.length === 0) {
+    selectedStyles = artStyles;
+  }
+  
+  // Intelligent rotation system to prevent repetitive patterns
+  const getRotatedSelection = (array: string[], historyKey: string) => {
+    // Filter out recently used combinations
+    const recentHistory = styleRotationHistory.slice(-10); // Look at last 10 generations
+    const availableOptions = array.filter(option => 
+      !recentHistory.some(history => history.includes(option))
+    );
+    
+    // Use available options if any, otherwise use all options
+    const selectionArray = availableOptions.length > 0 ? availableOptions : array;
+    
+    // Use rotation index for more predictable variety
+    const index = styleRotationIndex % selectionArray.length;
+    const selected = selectionArray[index];
+    
+    // Update rotation index
+    styleRotationIndex = (styleRotationIndex + 1) % selectionArray.length;
+    
+    return selected;
+  };
+  
+  // Select elements with intelligent rotation
+  const randomFocus = getRotatedSelection(selectedStyles, 'artStyle');
+  const randomColors = getRotatedSelection(colorPalettes, 'colorPalette');
+  const randomTypography = getRotatedSelection(typographyStyles, 'typography');
+  
+  // Track this combination to avoid repetition
+  const combination = `${randomFocus}|${randomColors}|${randomTypography}`;
+  styleRotationHistory.push(combination);
+  
+  // Keep history manageable (last 50 combinations)
+  if (styleRotationHistory.length > 50) {
+    styleRotationHistory.splice(0, styleRotationHistory.length - 50);
+  }
+  
+  // Update diversity analytics
+  diversityStats.totalGenerations++;
+  diversityStats.artStylesUsed.set(randomFocus, (diversityStats.artStylesUsed.get(randomFocus) || 0) + 1);
+  diversityStats.colorPalettesUsed.set(randomColors, (diversityStats.colorPalettesUsed.get(randomColors) || 0) + 1);
+  diversityStats.typographyStylesUsed.set(randomTypography, (diversityStats.typographyStylesUsed.get(randomTypography) || 0) + 1);
+  
+  // Log diversity stats periodically
+  if (diversityStats.totalGenerations % 10 === 0) {
+    console.log(`🎨 Cover Image Diversity Stats (${diversityStats.totalGenerations} generations):`);
+    console.log(`   Art Styles: ${diversityStats.artStylesUsed.size} unique styles used`);
+    console.log(`   Color Palettes: ${diversityStats.colorPalettesUsed.size} unique palettes used`);
+    console.log(`   Typography: ${diversityStats.typographyStylesUsed.size} unique styles used`);
+  }
+  
+  // Build the dynamic prompt with enhanced diversity
+  let basePrompt = `A highly stylized, diverse artistic illustration that captures the essence of the music. Dynamic and visually striking, inspired by contemporary and traditional art movements from around the world. Include the playlist title and description in bold, artistic typography integrated into the design. Abstract and artistic design only, no human figures or faces.`;
   
   // Add playlist context
   if (title && title !== 'Untitled Playlist') {
@@ -550,8 +776,48 @@ function generatePlaylistCoverPrompt(
     basePrompt += ` Description: "${genre} music collection"`;
   }
   
-  // Add randomized elements
-  basePrompt += ` Focus: ${randomFocus}. Color palette: ${randomColors}. Typography: ${randomTypography}.`;
+  // Add randomized elements with enhanced descriptions
+  basePrompt += ` Art style: ${randomFocus}. Color palette: ${randomColors}. Typography: ${randomTypography}.`;
+  
+  // Add cultural and artistic diversity hints
+  const diversityHints = [
+    "incorporate elements from different cultural art traditions",
+    "blend modern digital art with traditional techniques",
+    "create a unique fusion of contemporary and classic styles",
+    "draw inspiration from global artistic movements",
+    "combine unexpected artistic elements for visual interest"
+  ];
+  const randomHint = diversityHints[Math.floor(Math.random() * diversityHints.length)];
+  basePrompt += ` ${randomHint}.`;
+  
+  // Add seasonal and time-based diversity elements
+  const currentHour = new Date().getHours();
+  const currentMonth = new Date().getMonth();
+  
+  // Time-based style variations
+  if (currentHour >= 6 && currentHour < 12) {
+    basePrompt += ` Incorporate morning light and fresh energy.`;
+  } else if (currentHour >= 12 && currentHour < 18) {
+    basePrompt += ` Capture the vibrant energy of daytime.`;
+  } else if (currentHour >= 18 && currentHour < 22) {
+    basePrompt += ` Embrace the golden hour and evening atmosphere.`;
+  } else {
+    basePrompt += ` Create a nocturnal, mysterious ambiance.`;
+  }
+  
+  // Seasonal variations
+  const seasons = ['spring', 'summer', 'autumn', 'winter'];
+  const season = seasons[Math.floor(currentMonth / 3)];
+  const seasonalElements = {
+    'spring': 'fresh blooms, pastel colors, and renewal themes',
+    'summer': 'vibrant energy, bright colors, and outdoor vibes',
+    'autumn': 'warm earth tones, falling leaves, and cozy atmosphere',
+    'winter': 'cool tones, crystalline elements, and introspective mood'
+  };
+  
+  if (Math.random() < 0.3) { // 30% chance to include seasonal elements
+    basePrompt += ` Subtly incorporate ${seasonalElements[season]}.`;
+  }
   
   // Add user guidance if provided
   if (userPrompt) {
@@ -559,6 +825,28 @@ function generatePlaylistCoverPrompt(
   }
 
   return basePrompt;
+}
+
+/**
+ * Get diversity statistics for cover image generation
+ */
+export function getCoverImageDiversityStats() {
+  return {
+    totalGenerations: diversityStats.totalGenerations,
+    uniqueArtStyles: diversityStats.artStylesUsed.size,
+    uniqueColorPalettes: diversityStats.colorPalettesUsed.size,
+    uniqueTypographyStyles: diversityStats.typographyStylesUsed.size,
+    mostUsedArtStyle: Array.from(diversityStats.artStylesUsed.entries())
+      .sort(([,a], [,b]) => b - a)[0]?.[0] || 'none',
+    mostUsedColorPalette: Array.from(diversityStats.colorPalettesUsed.entries())
+      .sort(([,a], [,b]) => b - a)[0]?.[0] || 'none',
+    mostUsedTypography: Array.from(diversityStats.typographyStylesUsed.entries())
+      .sort(([,a], [,b]) => b - a)[0]?.[0] || 'none',
+    diversityScore: Math.round(
+      ((diversityStats.artStylesUsed.size + diversityStats.colorPalettesUsed.size + diversityStats.typographyStylesUsed.size) / 
+       (36 + 36 + 36)) * 100 // Total possible unique combinations
+    )
+  };
 }
 
 /**

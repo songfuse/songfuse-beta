@@ -1,34 +1,4 @@
 {
-  "s4t7xmfguiqmf8i0zis": {
-    "user": {
-      "id": 8,
-      "username": "testuser3@example.com",
-      "email": "testuser3@example.com",
-      "name": "testuser3",
-      "picture": "https://via.placeholder.com/40x40/4F46E5/FFFFFF?text=T"
-    },
-    "expiresAt": 1757263753684
-  },
-  "pb2ayecaaanmf8imxp9": {
-    "user": {
-      "id": 9,
-      "username": "test3@example.com",
-      "email": "test3@example.com",
-      "name": "test3",
-      "picture": "https://via.placeholder.com/40x40/4F46E5/FFFFFF?text=T"
-    },
-    "expiresAt": 1757264777757
-  },
-  "o1lar4fwtvmf8itbsr": {
-    "user": {
-      "id": 10,
-      "username": "test4@example.com",
-      "email": "test4@example.com",
-      "name": "test4",
-      "picture": "https://via.placeholder.com/40x40/4F46E5/FFFFFF?text=T"
-    },
-    "expiresAt": 1757265075963
-  },
   "d4inytxvvrmf8odrd2": {
     "user": {
       "id": 7,

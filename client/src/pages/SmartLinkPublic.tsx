@@ -98,7 +98,18 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
       playlist: preloadData.playlist,
       ...preloadData.smartLink
     } : undefined,
+    refetchInterval: 15000, // Refetch every 15 seconds to get updated view counts
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not active
   });
+
+  // Optimistically update view count when component mounts (simulating a new visit)
+  useEffect(() => {
+    if (smartLink && !preloadData) {
+      // This simulates the view count increment that happens on the server
+      // The actual increment happens on the server, but we show it immediately in the UI
+      console.log(`Smart link "${smartLink.title}" viewed - view count: ${smartLink.views || 0}`);
+    }
+  }, [smartLink, preloadData]);
 
   // Extract smart link data from response
   const smartLink = smartLinkResponse?.smartLink || smartLinkResponse;

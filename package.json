@@ -8,7 +8,12 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "fix-track-data": "tsx scripts/fix-missing-track-data.ts",
+    "fix-track-data-v2": "tsx scripts/fix-missing-track-data-v2.ts",
+    "test-missing-data": "tsx scripts/test-missing-data.ts",
+    "setup-db-assistant": "tsx scripts/setup-db-assistant.ts",
+    "test-db-assistant": "tsx scripts/test-db-assistant.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.37.0",

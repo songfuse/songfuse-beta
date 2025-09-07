@@ -116,7 +116,7 @@ class OdesliBackgroundService {
         AND NOT EXISTS (
           SELECT 1 FROM track_platform_ids pl2
           WHERE pl2.track_id = t.id
-          AND pl2.platform IN ('youtube', 'appleMusic', 'amazonMusic', 'tidal', 'deezer')
+          AND pl2.platform IN ('youtube', 'apple_music', 'amazon_music', 'tidal', 'deezer')
         )
       `);
 
@@ -138,7 +138,7 @@ class OdesliBackgroundService {
         AND NOT EXISTS (
           SELECT 1 FROM track_platform_ids pl2
           WHERE pl2.track_id = t.id
-          AND pl2.platform IN ('youtube', 'appleMusic', 'amazonMusic', 'tidal', 'deezer')
+          AND pl2.platform IN ('youtube', 'apple_music', 'amazon_music', 'tidal', 'deezer')
         )
         ORDER BY t.id
         LIMIT ${this.BATCH_SIZE}
@@ -200,8 +200,8 @@ class OdesliBackgroundService {
       const platformMappings: { [key: string]: string } = {
         'spotify': 'spotify',
         'youtubeMusic': 'youtube',
-        'appleMusic': 'appleMusic',
-        'amazonMusic': 'amazonMusic',
+        'appleMusic': 'apple_music',
+        'amazonMusic': 'amazon_music',
         'tidal': 'tidal',
         'deezer': 'deezer'
       };
@@ -248,7 +248,7 @@ class OdesliBackgroundService {
           const youtubeMatch = url.match(/[?&]v=([^&]+)/);
           return youtubeMatch ? youtubeMatch[1] : null;
           
-        case 'appleMusic':
+        case 'apple_music':
           const appleMatch = url.match(/\/album\/[^\/]+\/(\d+)/);
           return appleMatch ? appleMatch[1] : null;
           

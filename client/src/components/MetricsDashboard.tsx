@@ -200,13 +200,13 @@ export default function MetricsDashboard() {
             } : undefined}
           />
           <MetricCard
-            title="Your Tracks"
+            title="Total Tracks"
             value={metrics.database.totalTracks}
             description="Unique songs in your playlists"
             icon={<Music className="h-4 w-4" />}
           />
           <MetricCard
-            title="Your Artists"
+            title="Total Artists"
             value={metrics.database.totalArtists}
             description="Musicians in your collection"
             icon={<Users className="h-4 w-4" />}

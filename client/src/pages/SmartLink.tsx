@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Share2, ExternalLink, Eye, Music, Headphones } from "lucide-react";
+import { Play, Eye, Music, Headphones } from "lucide-react";
 import { SiSpotify, SiApplemusic, SiYoutube, SiAmazonmusic, SiTidal } from "react-icons/si";
 
 interface SmartLinkData {
@@ -88,7 +88,9 @@ export default function SmartLink() {
 
   const { data: smartLinkData, isLoading, error } = useQuery<SmartLinkData>({
     queryKey: ['/api/smart-links', shareId],
-    enabled: !!shareId
+    enabled: !!shareId,
+    refetchInterval: 15000, // Refetch every 15 seconds to get updated view counts
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not active
   });
 
   const [currentTrack, setCurrentTrack] = useState<number | null>(null);
@@ -185,7 +187,6 @@ export default function SmartLink() {
                 url: window.location.href 
               })}
             >
-              <Share2 className="w-4 h-4 mr-2" />
               Share
             </Button>
           </div>
@@ -227,7 +228,6 @@ export default function SmartLink() {
                             className={`${config.bgColor} ${config.color} border-current hover:bg-current hover:text-white transition-all`}
                             onClick={() => window.open(url || `${config.baseUrl}${id}`, '_blank')}
                           >
-                            <Icon className="w-4 h-4 mr-2" />
                             {config.name}
                           </Button>
                         );
@@ -301,7 +301,7 @@ export default function SmartLink() {
                                 className={`${config.color} hover:${config.bgColor} p-2`}
                                 onClick={() => window.open(url || `${config.baseUrl}${id}`, '_blank')}
                               >
-                                <Icon className="w-4 h-4" />
+                                {config.name}
                               </Button>
                             );
                           })}
@@ -311,7 +311,7 @@ export default function SmartLink() {
                               size="sm"
                               className="text-gray-500 hover:bg-gray-100 p-2"
                             >
-                              <ExternalLink className="w-4 h-4" />
+                              More
                             </Button>
                           )}
                         </div>

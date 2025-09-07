@@ -50,11 +50,13 @@ const SmartLinks = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [smartLinkToDelete, setSmartLinkToDelete] = useState<SmartLink | null>(null);
 
-  // Fetch user's smart links
+  // Fetch user's smart links with real-time updates
   const { data: smartLinks = [], isLoading, refetch } = useQuery<SmartLink[]>({
     queryKey: ['/api/v2/users', user?.id, 'smart-links'],
     queryFn: () => fetch(`/api/v2/users/${user?.id}/smart-links`).then(res => res.json()),
     enabled: !!user,
+    refetchInterval: 10000, // Refetch every 10 seconds to get updated view counts
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not active
   });
 
   // Delete smart link mutation

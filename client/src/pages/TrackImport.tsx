@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { DownloadIcon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -805,12 +804,7 @@ export default function TrackImport() {
                   disabled={isLoading}
                   className="bg-[#d02b31] hover:bg-[#d02b31]/80 text-white"
                 >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Importing...
-                    </>
-                  ) : "Import Tracks"}
+                  {isLoading ? "Importing..." : "Import Tracks"}
                 </Button>
               </div>
             </CardContent>
@@ -894,7 +888,6 @@ export default function TrackImport() {
                         size="sm"
                         className="flex items-center space-x-1"
                       >
-                        <DownloadIcon className="h-4 w-4" />
                         <span>Export JSON</span>
                       </Button>
                     </div>

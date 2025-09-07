@@ -1520,8 +1520,8 @@ const PlaylistEditor = ({
         </div>
         
         {/* Action bar fixed at the bottom inside the modal window */}
-        <div className="border-t dark:border-gray-800 border-gray-300 dark:bg-[#191414]/80 bg-white/80 sticky bottom-0 left-0 right-0 z-10 mt-0 w-full">
-          <div className="flex items-center justify-center py-3 mb-2">
+        <div className="border-t dark:border-gray-800 border-gray-300 dark:bg-[#191414]/80 bg-white/80 backdrop-blur-md sticky bottom-0 left-0 right-0 z-10 mt-0 w-full">
+          <div className="flex items-center justify-center py-3">
             <Button 
               onClick={saveToSongfuseDatabase}
               disabled={isLoading || tracks.length === 0}

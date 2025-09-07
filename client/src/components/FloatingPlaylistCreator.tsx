@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, ChevronLeft, Music, Minimize2, Maximize2, ExternalLink } from 'lucide-react';
+import { X, ChevronLeft, Music, Minimize2, Maximize2 } from 'lucide-react';
 import ChatInterface from './ChatInterface';
 import PlaylistEditor from './PlaylistEditor';
 import SpotifyPlaylistImporter from './SpotifyPlaylistImporter';
@@ -172,15 +172,14 @@ const FloatingPlaylistCreator: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            {!showImportMode && (
+            {!showImportMode && !generatedPlaylist && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowImportMode(true)}
                 className="flex items-center gap-1"
               >
-                <ExternalLink className="h-3 w-3" />
-                Import
+                Import from Spotify
               </Button>
             )}
             {showImportMode && (
@@ -211,7 +210,7 @@ const FloatingPlaylistCreator: React.FC = () => {
               {isLoading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent" />
               ) : (
-                <ChevronRight className="h-5 w-5" />
+                '→'
               )}
             </Button>
           </div>

@@ -9,8 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { FaTwitter, FaFacebook, FaWhatsapp, FaTelegramPlane, FaLink } from 'react-icons/fa';
-import { SiX } from "react-icons/si";
+import { FaTwitter, FaLink } from 'react-icons/fa';
 import PlaylistCoverPlaceholder from "./PlaylistCoverPlaceholder";
 
 interface ShareModalProps {
@@ -165,7 +164,7 @@ const ShareModal = ({ open, onClose, playlistTitle, spotifyUrl, coverImageUrl, s
               onClick={() => openShareWindow(twitterUrl)}
               title="Share on Twitter"
             >
-              <SiX className="h-5 w-5" />
+              X
             </Button>
             
             <Button
@@ -175,7 +174,7 @@ const ShareModal = ({ open, onClose, playlistTitle, spotifyUrl, coverImageUrl, s
               onClick={() => openShareWindow(facebookUrl)}
               title="Share on Facebook"
             >
-              <FaFacebook className="h-5 w-5" />
+              FB
             </Button>
             
             <Button
@@ -185,7 +184,7 @@ const ShareModal = ({ open, onClose, playlistTitle, spotifyUrl, coverImageUrl, s
               onClick={() => openShareWindow(whatsappUrl)}
               title="Share on WhatsApp"
             >
-              <FaWhatsapp className="h-5 w-5" />
+              WA
             </Button>
             
             <Button
@@ -195,7 +194,7 @@ const ShareModal = ({ open, onClose, playlistTitle, spotifyUrl, coverImageUrl, s
               onClick={() => openShareWindow(telegramUrl)}
               title="Share on Telegram"
             >
-              <FaTelegramPlane className="h-5 w-5" />
+              TG
             </Button>
             
             <Button

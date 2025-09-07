@@ -11,7 +11,7 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
-import { Loader2, Image as ImageIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -122,17 +122,7 @@ export default function FreepikCoverTest() {
               disabled={loading || !prompt.trim()}
               className="w-full"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <ImageIcon className="mr-2 h-4 w-4" />
-                  Generate Image
-                </>
-              )}
+              {loading ? 'Generating...' : 'Generate Image'}
             </Button>
           </CardFooter>
         </Card>

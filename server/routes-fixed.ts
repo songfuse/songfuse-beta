@@ -2950,7 +2950,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Try to search by title and artist first
         const searchQuery = query || `${title} ${artist}`.trim();
         // Use silent mode to suppress [GENERAL SEARCH] logs
-        const dbTracks = await db.searchTracks(searchQuery, 5, 0, false, null, [], [], true);
+        const { searchTracks } = await import('./db');
+        const dbTracks = await searchTracks(searchQuery, 5, 0, false, null, [], [], true);
         
         if (dbTracks && dbTracks.length > 0) {
           // Found in database
@@ -3160,7 +3161,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Direct Assistant API endpoint for playlist generation
+  // Database-enabled Assistant API endpoint for playlist generation
+  // This endpoint uses direct database access instead of static JSON files
+  app.post('/_songfuse_api/playlist/db-assistant', async (req: Request, res: Response) => {
+    // Set explicit content type and accept headers to ensure proper JSON response
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Generate a unique session ID for tracking
+    const sessionId = crypto.randomUUID();
+    console.log(`Starting database assistant playlist generation with session ID: ${sessionId}`);
+    
+    try {
+      // Extract the user prompt and additional parameters from the request
+      const { prompt, userId, sessionId: clientSessionId } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Missing 'prompt' field in request body",
+          error: "MISSING_PROMPT" 
+        });
+      }
+      
+      // Log the request details
+      console.log(`Database Assistant API - Received prompt: "${prompt.substring(0, 100)}..."`);
+      console.time(`db-assistant-${sessionId}`);
+      
+      // Import the database-enabled assistant service
+      const { generatePlaylistWithDBAssistant } = await import('./services/assistant-with-db');
+      
+      // Generate playlist using the database-enabled assistant
+      const result = await generatePlaylistWithDBAssistant({
+        prompt,
+        userId,
+        sessionId: clientSessionId
+      });
+      
+      console.timeEnd(`db-assistant-${sessionId}`);
+      
+      if (result.success) {
+        console.log(`Database Assistant API - Successfully generated playlist with ${result.songs?.length || 0} songs`);
+        return res.json({
+          success: true,
+          songs: result.songs,
+          message: result.message || "Playlist generated successfully using database access",
+          sessionId: sessionId
+        });
+      } else {
+        console.error(`Database Assistant API - Failed to generate playlist: ${result.error}`);
+        return res.status(500).json({
+          success: false,
+          message: result.message || "Failed to generate playlist",
+          error: result.error,
+          sessionId: sessionId
+        });
+      }
+      
+    } catch (error) {
+      console.error(`Database Assistant API - Error:`, error);
+      console.timeEnd(`db-assistant-${sessionId}`);
+      
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error during playlist generation",
+        error: error.message,
+        sessionId: sessionId
+      });
+    }
+  });
+
+  // Direct Assistant API endpoint for playlist generation (legacy)
   // This endpoint uses a special prefix to bypass Vite middleware and connect directly to OpenAI
   app.post('/_songfuse_api/playlist/direct-assistant', async (req: Request, res: Response) => {
     // Set explicit content type and accept headers to ensure proper JSON response
@@ -3212,28 +3282,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startTime = Date.now();
       console.log(`Direct Assistant API - Starting request at ${new Date().toISOString()}`);
       
-      // Use standard completion API instead of Assistant API
-      console.log(`Using standard OpenAI completion API for playlist generation`);
+      // Use the Assistant API with the configured assistant ID
+      const assistantId = process.env.OPENAI_ASSISTANT_ID;
+      if (!assistantId) {
+        return res.status(500).json({
+          success: false,
+          message: "OpenAI Assistant ID not configured",
+          error: "MISSING_ASSISTANT_ID"
+        });
+      }
       
-      // Create a system prompt for playlist generation
-      const systemPrompt = `You are a music recommendation assistant that creates personalized playlists.
-For the given prompt, recommend 24 specific songs that match the request.
-Focus on creating a cohesive playlist with good flow and pacing.
-Ensure song variety across artists (don't recommend more than 2 songs from the same artist).
-Recommend real songs that exist.
-
-Your response should be in JSON format:
-{
-  "songs": [
-    {"title": "Song Title", "artist": "Artist Name", "genre": "Genre"},
-    ...
-  ],
-  "genres": ["genre1", "genre2", ...],
-  "title": "Playlist Title",
-  "description": "Engaging, descriptive paragraph about the playlist.",
-  "coverDescription": "Visual description for generating a playlist cover image."
-}`;
-
+      console.log(`Using OpenAI Assistant API with assistant ID: ${assistantId}`);
+      
       // Enhance the prompt with article context if available
       let enhancedPrompt = prompt;
       if (articleData && articleData.title && articleData.link) {
@@ -3249,25 +3309,125 @@ Please create a playlist that captures the themes, mood, and energy of this news
         console.log("Enhanced prompt for article-based playlist:", enhancedPrompt.substring(0, 200) + "...");
       }
       
-      // Call the OpenAI completion API
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: enhancedPrompt }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 1.0,
-        max_tokens: 2048
+      // Use the Assistant API
+      const thread = await openai.beta.threads.create();
+      console.log(`Created thread ${thread.id}`);
+      
+      // Add the user's prompt to the thread
+      await openai.beta.threads.messages.create(thread.id, {
+        role: "user",
+        content: enhancedPrompt,
       });
       
-      // Parse the response
-      const responseText = response.choices[0].message.content;
-      if (!responseText) {
-        throw new Error('OpenAI returned an empty response');
+      console.log(`Added user prompt to thread`);
+      
+      // Run the Assistant on the Thread
+      const run = await openai.beta.threads.runs.create(thread.id, {
+        assistant_id: assistantId
+      });
+      console.log(`Started run ${run.id} using Assistant ${assistantId}`);
+      
+      // Wait for the run to complete
+      let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+      while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
       }
       
-      console.log(`OpenAI response: ${responseText.substring(0, 200)}...`);
+      if (runStatus.status === 'failed') {
+        throw new Error(`Assistant run failed: ${runStatus.last_error?.message || 'Unknown error'}`);
+      }
+      
+      // Get the assistant's response
+      const messages = await openai.beta.threads.messages.list(thread.id);
+      const assistantMessage = messages.data.find(msg => msg.role === 'assistant');
+      
+      if (!assistantMessage) {
+        throw new Error('No response from assistant');
+      }
+      
+      const responseText = assistantMessage.content[0].type === 'text' 
+        ? assistantMessage.content[0].text.value 
+        : JSON.stringify(assistantMessage.content[0]);
+      
+      console.log(`Assistant response received: ${responseText.substring(0, 200)}...`);
+      
+      // Extract JSON from markdown if present
+      let jsonText = responseText;
+      
+      // Check if response contains markdown code blocks
+      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[1].trim();
+        console.log(`Extracted JSON from markdown: ${jsonText.substring(0, 100)}...`);
+      } else {
+        // Try to find JSON object in the text
+        const jsonObjectMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonObjectMatch) {
+          jsonText = jsonObjectMatch[0];
+          console.log(`Extracted JSON object from text: ${jsonText.substring(0, 100)}...`);
+        }
+      }
+      
+      // Handle case where assistant returns database IDs instead of song metadata
+      // If the response only contains database IDs, we need to convert them to proper song format
+      let parsedResponse;
+      try {
+        parsedResponse = JSON.parse(jsonText);
+        
+        // Check if songs are just database IDs (strings that are numbers)
+        if (parsedResponse.songs && Array.isArray(parsedResponse.songs)) {
+          const hasOnlyIds = parsedResponse.songs.every(song => 
+            typeof song === 'string' && /^\d+$/.test(song)
+          );
+          
+          if (hasOnlyIds) {
+            console.log(`Assistant returned database IDs, looking up track information from database...`);
+            
+            // Look up actual track information from database
+            const trackIds = parsedResponse.songs.map(id => parseInt(id));
+            const { storage } = await import('./storage_simplified');
+            const tracks = await storage.getTracksByIds(trackIds);
+            
+            // Convert database IDs to proper song objects with real data
+            parsedResponse.songs = parsedResponse.songs.map(id => {
+              const trackId = parseInt(id);
+              const track = tracks.find(t => t.id === trackId);
+              
+              if (track) {
+                return {
+                  dbId: track.id,
+                  id: `db_${track.id}`,
+                  name: track.title,
+                  artists: track.artists || [{ name: 'Unknown Artist' }],
+                  genre: track.genre || 'Unknown',
+                  spotifyId: track.spotify_id,
+                  duration: track.duration,
+                  previewUrl: track.previewUrl,
+                  coverImage: track.cover_image
+                };
+              } else {
+                // Fallback if track not found
+                return {
+                  dbId: trackId,
+                  id: `db_${trackId}`,
+                  name: `Track ${trackId}`,
+                  artists: [{ name: 'Unknown Artist' }],
+                  genre: 'Unknown'
+                };
+              }
+            });
+          }
+        }
+      } catch (parseError) {
+        console.error(`JSON parsing failed: ${parseError.message}`);
+        throw new Error(`Failed to parse assistant response: ${parseError.message}`);
+      }
+      
+      // Use the parsed response
+      const response = parsedResponse;
+      
+      console.log(`Assistant response parsed successfully`);
       
       // Log timing information
       const endTime = Date.now();
@@ -3275,32 +3435,10 @@ Please create a playlist that captures the themes, mood, and energy of this news
       console.log(`Direct Assistant API - Request completed in ${duration.toFixed(2)} seconds`);
       console.timeEnd(`direct-assistant-${sessionId}`);
       
-      // Parse the JSON response
-      let jsonResponse;
-      try {
-        jsonResponse = JSON.parse(responseText);
-        console.log("Successfully parsed JSON response");
-      } catch (jsonError) {
-        console.error("Failed to parse JSON from OpenAI response:", jsonError);
-        console.log("Raw response:", responseText);
-        
-        // Return the raw text if JSON parsing fails
-        return res.status(200).json({
-          success: true,
-          rawResponse: responseText,
-          warning: "Failed to parse JSON from OpenAI response",
-          timing: {
-            duration: duration,
-            startTime: new Date(startTime).toISOString(),
-            endTime: new Date(endTime).toISOString()
-          }
-        });
-      }
-      
       // Return the successful response
       return res.status(200).json({
         success: true,
-        response: jsonResponse,
+        response: response,
         timing: {
           duration: duration,
           startTime: new Date(startTime).toISOString(),
@@ -3457,6 +3595,154 @@ Please create a playlist that captures the themes, mood, and energy of this news
     } catch (error) {
       console.error('Error fetching playlist tracks:', error);
       res.status(500).json({ message: 'Failed to fetch tracks' });
+    }
+  });
+
+  // Smart link view tracking endpoint
+  app.get('/api/smart-links/:shareId', async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    
+    try {
+      const { shareId } = req.params;
+      
+      // Get smart link data
+      const smartLink = await storage.getSmartLinkByShareId(shareId);
+      if (!smartLink) {
+        return res.status(404).json({ message: 'Smart link not found' });
+      }
+      
+      // Increment view count
+      await storage.incrementSmartLinkViews(shareId);
+      
+      // Return the smart link data with the incremented view count
+      const updatedSmartLink = {
+        ...smartLink,
+        views: smartLink.views + 1
+      };
+      
+      return res.json(updatedSmartLink);
+    } catch (error) {
+      console.error('Error fetching smart link:', error);
+      return res.status(500).json({ message: 'Failed to fetch smart link' });
+    }
+  });
+
+  // Main smart link share route with view tracking and social media metadata
+  app.get(["/share/:playlistId/:title?", "/share/:playlistId"], async (req, res, next) => {
+    try {
+      const playlistId = parseInt(req.params.playlistId);
+      if (isNaN(playlistId)) {
+        return next(); // Let client-side router handle it
+      }
+
+      // Increment view count for ALL visits to this playlist share route
+      try {
+        await storage.incrementSmartLinkViewsByPlaylistId(playlistId);
+        console.log(`View count incremented for playlist ${playlistId}`);
+      } catch (viewError) {
+        console.error(`Failed to increment view count for playlist ${playlistId}:`, viewError);
+        // Don't block the request if view tracking fails
+      }
+
+      // Check if this is a bot/crawler requesting metadata
+      const userAgent = req.headers['user-agent'] || '';
+      const isBot = /bot|crawler|spider|facebook|twitter|linkedin|pinterest|whatsapp|telegram|slack/i.test(userAgent);
+      
+      if (isBot) {
+        console.log(`Social media crawler detected: ${userAgent}`);
+        
+        // Fetch playlist data for metadata
+        const smartLink = await storage.getSmartLinkByPlaylistId(playlistId);
+        
+        if (!smartLink) {
+          console.log(`Smart link not found for playlist ID: ${playlistId}`);
+          return next(); // Let client-side router handle 404
+        }
+
+        // Get the actual playlist data to access cover image
+        const playlist = await storage.getPlaylist(playlistId);
+        const coverImage = smartLink.customCoverImage || playlist?.coverImageUrl;
+        // Ensure proper URL formatting - if coverImage already has protocol, use it directly
+        const absoluteCoverUrl = coverImage 
+          ? (coverImage.startsWith('http') ? coverImage : `${req.protocol}://${req.get('host')}${coverImage}`)
+          : `${req.protocol}://${req.get('host')}/images/covers/cover-1747487037971.jpg`;
+        
+        // Get track count
+        const tracks = await storage.getSmartLinkTracks(`playlist-${playlistId}`);
+        const trackCount = tracks?.length || 0;
+        
+        // Escape HTML special characters for safety
+        const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (char) => {
+          const escapeMap: { [key: string]: string } = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+          };
+          return escapeMap[char];
+        });
+        
+        const safeTitle = escapeHtml(smartLink.title);
+        const safeDescription = escapeHtml(smartLink.description || `Discover ${smartLink.title}, an AI-curated playlist with ${trackCount} tracks. Listen across all platforms on SongFuse.`);
+        
+        console.log(`Serving metadata for playlist: ${safeTitle}`);
+        
+        // Generate dynamic HTML with Open Graph and Twitter Card metadata
+        const html = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>${safeTitle} - SongFuse Playlist</title>
+    
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="${safeTitle} - SongFuse Playlist">
+    <meta name="description" content="${safeDescription}">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="music.playlist">
+    <meta property="og:title" content="${safeTitle}">
+    <meta property="og:description" content="${safeDescription}">
+    <meta property="og:image" content="${absoluteCoverUrl}">
+    <meta property="og:image:width" content="300">
+    <meta property="og:image:height" content="300">
+    <meta property="og:site_name" content="SongFuse">
+    <meta property="og:url" content="${req.protocol}://${req.get('host')}${req.originalUrl}">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="${safeTitle}">
+    <meta property="twitter:description" content="${safeDescription}">
+    <meta property="twitter:image" content="${absoluteCoverUrl}">
+    
+    <!-- Music-specific metadata -->
+    <meta property="music:creator" content="SongFuse AI">
+    <meta property="music:song_count" content="${trackCount}">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/src/assets/songfuse-brand.svg" />
+  </head>
+  <body>
+    <div style="text-align: center; padding: 50px; font-family: 'Work Sans', sans-serif;">
+      <h1>${safeTitle}</h1>
+      <p>AI-curated playlist with ${trackCount} tracks</p>
+      <img src="${absoluteCoverUrl}" alt="${safeTitle}" style="max-width: 300px; border-radius: 12px; margin: 20px 0;">
+      <p><a href="${req.protocol}://${req.get('host')}${req.originalUrl}" style="color: #e11d48; text-decoration: none;">Open in SongFuse →</a></p>
+    </div>
+  </body>
+</html>`;
+
+        return res.send(html);
+      }
+
+      // For regular users, let client-side router handle it
+      next();
+    } catch (error) {
+      console.error("Error serving smart link metadata:", error);
+      next(); // Let client-side router handle it
     }
   });
 

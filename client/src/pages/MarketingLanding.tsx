@@ -189,9 +189,7 @@ const MarketingLanding = () => {
                 size="lg"
                 className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-8 py-4 rounded-full text-lg font-medium transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105"
               >
-                <Sparkles className="mr-2 h-5 w-5" />
                 Create Your First Playlist
-                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               
               <Button 
@@ -200,7 +198,6 @@ const MarketingLanding = () => {
                 onClick={() => setLocation("/discover")}
                 className="border-red-500/30 text-foreground hover:bg-red-500/10 hover:border-red-400 px-8 py-4 rounded-full text-lg font-medium transition-all duration-300"
               >
-                <Play className="mr-2 h-5 w-5" />
                 Explore Examples
               </Button>
             </motion.div>

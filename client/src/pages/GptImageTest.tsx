@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { 
   Loader2, 
-  Image as ImageIcon, 
   Info, 
   RefreshCw, 
   Download
@@ -287,17 +286,7 @@ export default function GptImageTest() {
                 disabled={loading}
                 className="flex-1"
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    Generate Image
-                  </>
-                )}
+                {loading ? 'Generating...' : 'Generate Image'}
               </Button>
               
               {generatedImageUrl && (
