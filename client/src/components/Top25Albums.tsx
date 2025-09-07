@@ -19,6 +19,7 @@ interface Album {
   appleUrl: string;
   isExplicit: boolean;
   artistId: string;
+  description?: string;
 }
 
 interface Top25AlbumsProps {
@@ -127,8 +128,8 @@ const Top25Albums = ({ onCreatePlaylist }: Top25AlbumsProps) => {
   };
 
   return (
-    <Card className="w-full bg-card border-border">
-      <CardContent className="pt-6 text-left">
+    <Card className="w-full">
+      <CardContent className="p-2">
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-8">
             <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
@@ -157,91 +158,105 @@ const Top25Albums = ({ onCreatePlaylist }: Top25AlbumsProps) => {
         
         {!isLoading && !isError && data && data.data && data.data.length > 0 && (
           <div className="space-y-6">
-            {/* Header with last updated info */}
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-foreground">
-                Apple Music Top 25 Albums (US)
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Updated: {data.updated ? new Date(data.updated).toLocaleDateString() : 'Today'}
-              </p>
-            </div>
             
-            {/* Albums Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Chart List */}
+            <div className="space-y-2">
               {data.data.map((album, index) => (
-                <Card key={album.id} className="relative overflow-hidden hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4">
-                    {/* Chart Position Badge */}
-                    <div className="absolute top-2 left-2 z-10">
-                      <Badge variant="secondary" className="bg-primary/90 text-primary-foreground">
-                        <Hash className="w-3 h-3 mr-1" />
-                        {formatChartPosition(album.chartPosition)}
-                      </Badge>
+                <div key={album.id} className={`flex items-center gap-4 p-4 rounded-lg border transition-all duration-200 group ${
+                  album.chartPosition <= 3 
+                    ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200 hover:from-yellow-100 hover:to-orange-100' 
+                    : 'bg-card hover:bg-muted/50'
+                }`}>
+                  {/* Chart Position */}
+                  <div className="flex-shrink-0 w-12 text-center">
+                    <div className={`text-2xl font-bold ${
+                      album.chartPosition <= 3 
+                        ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent' 
+                        : album.chartPosition <= 10
+                        ? 'text-foreground'
+                        : 'text-muted-foreground'
+                    }`}>
+                      {album.chartPosition}
                     </div>
-                    
+                    {album.chartPosition <= 3 && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {album.chartPosition === 1 ? 'Top 1' : album.chartPosition === 2 ? 'Top 2' : 'Top 3'}
+                      </div>
+                    )}
+                    {album.chartPosition > 3 && album.chartPosition <= 10 && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Top 10
+                      </div>
+                    )}
+                  </div>
 
-                    
-                    {/* Album Cover */}
-                    <div className="relative mb-3">
-                      <img
-                        src={album.coverImage}
-                        alt={`${album.title} by ${album.artist}`}
-                        className="w-full aspect-square object-cover rounded-md"
-                        onError={(e) => {
-                          // Fallback to a lower resolution if high-res fails
-                          const target = e.target as HTMLImageElement;
-                          if (!target.src.includes('100x100bb')) {
-                            target.src = album.coverImage.replace('300x300bb', '100x100bb');
-                          }
-                        }}
-                      />
-                    </div>
-                    
-                    {/* Album Info */}
-                    <div className="space-y-2">
-                      <h3 className="font-semibold text-sm line-clamp-2 text-foreground">
-                        {album.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-1">
-                        {album.artist}
-                      </p>
-                      
-                      {/* Genre and Release Date */}
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="text-xs">
-                          {album.genre}
-                        </Badge>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {formatDate(album.releaseDate)}
+                  {/* Album Cover */}
+                  <div className="flex-shrink-0">
+                    <img
+                      src={album.coverImage}
+                      alt={`${album.title} by ${album.artist}`}
+                      className="w-32 h-32 object-cover rounded-md shadow-sm"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (!target.src.includes('100x100bb')) {
+                          target.src = album.coverImage.replace('300x300bb', '100x100bb');
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Album Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-base text-foreground truncate group-hover:text-primary transition-colors">
+                          {album.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {album.artist}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">
+                            {album.genre}
+                          </Badge>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="w-3 h-3" />
+                            {formatDate(album.releaseDate)}
+                          </div>
                         </div>
+                        
+                        {/* Album Description */}
+                        {album.description && (
+                          <p className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
+                            {album.description}
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* Create Playlist Button */}
+                      <div className="flex-shrink-0 ml-4">
+                        <Button
+                          onClick={() => handleCreatePlaylist(album, index)}
+                          disabled={isCreatingPlaylist === index}
+                          size="sm"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          {isCreatingPlaylist === index ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4 mr-2" />
+                              Create Playlist
+                            </>
+                          )}
+                        </Button>
                       </div>
                     </div>
-                  </CardContent>
-                  
-                  <CardFooter className="pt-0 pb-4 px-4 space-y-2">
-                    {/* Create Playlist Button */}
-                    <Button
-                      onClick={() => handleCreatePlaylist(album, index)}
-                      disabled={isCreatingPlaylist === index}
-                      className="w-full"
-                      size="sm"
-                    >
-                      {isCreatingPlaylist === index ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Creating Playlist...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4 mr-2" />
-                          Create Playlist
-                        </>
-                      )}
-                    </Button>
-                  </CardFooter>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

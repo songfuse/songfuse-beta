@@ -19,7 +19,7 @@ export default function NotFound() {
         </CardContent>
         <CardFooter className="pt-0 flex justify-center">
           <Link href="/">
-            <Button className="bg-[#d02b31] hover:bg-[#d02b31]/80 text-white">
+            <Button>
               <Home className="mr-2 h-4 w-4" />
               Back to Home
             </Button>

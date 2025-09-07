@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, ChevronLeft, Music, Minimize2, Maximize2 } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Music, Minimize2, Maximize2, ExternalLink } from 'lucide-react';
 import ChatInterface from './ChatInterface';
 import PlaylistEditor from './PlaylistEditor';
+import SpotifyPlaylistImporter from './SpotifyPlaylistImporter';
 import { usePlaylistCreator } from '@/contexts/PlaylistCreatorContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,9 @@ const FloatingPlaylistCreator: React.FC = () => {
   
   // Add state for mobile menu height
   const [mobileMenuHeight, setMobileMenuHeight] = useState(80); // Default mobile menu height in pixels, a bit larger to ensure clearance
+  
+  // Add state for showing import mode
+  const [showImportMode, setShowImportMode] = useState(false);
   
   // Update mobile state based on window size
   useEffect(() => {
@@ -125,11 +129,11 @@ const FloatingPlaylistCreator: React.FC = () => {
 
       {/* Sidebar toggle button when minimized - only show on desktop */}
       {isMinimized && !isMobile && (
-        <div className="fixed right-4 top-20 z-50">
+        <div className="fixed right-2 top-2 z-50">
           <Button
             onClick={() => toggleMinimize()}
             disabled={isLoading}
-            className={`bg-gradient-to-r from-teal-500 to-[#1DB954] hover:from-teal-600 hover:to-[#169c46] text-white shadow-lg rounded-lg px-4 py-2 flex items-center gap-2 transition-all duration-200 ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
+            className={`${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
           >
             {isLoading ? (
               <>
@@ -138,7 +142,6 @@ const FloatingPlaylistCreator: React.FC = () => {
               </>
             ) : (
               <>
-                <Music className="h-4 w-4" />
                 <span className="text-sm font-medium">Create Playlist</span>
                 <ChevronLeft className="h-4 w-4" />
               </>
@@ -169,12 +172,31 @@ const FloatingPlaylistCreator: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            {generatedPlaylist && (
+            {!showImportMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowImportMode(true)}
+                className="flex items-center gap-1"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Import
+              </Button>
+            )}
+            {showImportMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowImportMode(false)}
+              >
+                Create New
+              </Button>
+            )}
+            {generatedPlaylist && !showImportMode && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setGeneratedPlaylist(null)}
-                className="text-sm border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954] hover:text-white"
               >
                 New Playlist
               </Button>
@@ -184,7 +206,7 @@ const FloatingPlaylistCreator: React.FC = () => {
               size="icon" 
               onClick={() => toggleMinimize()}
               disabled={isLoading}
-              className={`h-9 w-9 text-gray-600 hover:bg-red-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all duration-200 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isLoading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent" />
@@ -201,10 +223,14 @@ const FloatingPlaylistCreator: React.FC = () => {
             className="h-full overflow-y-auto"
             style={{ 
               height: 'calc(100vh - 69px)',
-              paddingBottom: isMobile ? '80px' : '20px'
+              paddingBottom: isMobile ? '80px' : '0px'
             }}
           >
-            {generatedPlaylist ? (
+            {showImportMode ? (
+              <div className="p-4">
+                <SpotifyPlaylistImporter />
+              </div>
+            ) : generatedPlaylist ? (
               <PlaylistEditor 
                 playlist={generatedPlaylist}
                 onCancel={() => setGeneratedPlaylist(null)}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -46,6 +46,8 @@ import Header from "./components/Header";
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any>, [key: string]: any }) {
   const [isAuthLoaded, setIsAuthLoaded] = useState(false);
   const [authError, setAuthError] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const [, setLocation] = useLocation();
   
   // Safely access auth context
   let user: any = null;
@@ -73,10 +75,22 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
     </div>;
   }
   
-  if (!user) {
-    // Redirect to login
-    window.location.href = "/login";
-    return null;
+  if (!user && !redirecting) {
+    // Use router navigation instead of window.location.href to avoid full page reload
+    // Add a small delay to prevent immediate redirect during auth loading
+    setRedirecting(true);
+    setTimeout(() => {
+      setLocation("/login");
+    }, 100);
+    return <div className="flex items-center justify-center h-screen bg-[#121212]">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#1DB954]"></div>
+    </div>;
+  }
+  
+  if (redirecting) {
+    return <div className="flex items-center justify-center h-screen bg-[#121212]">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#1DB954]"></div>
+    </div>;
   }
   
   return <Component {...rest} />;

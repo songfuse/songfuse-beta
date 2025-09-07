@@ -49,17 +49,19 @@ const Layout = ({ children, playlists = [], backgroundImage }: LayoutProps) => {
   
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Fixed header */}
-      <div className="fixed top-0 left-0 right-0 z-40">
-        <Header />
-      </div>
+      {/* Fixed header - only show for non-logged-in users */}
+      {!isLoggedIn && (
+        <div className="fixed top-0 left-0 right-0 z-40">
+          <Header />
+        </div>
+      )}
       
       {/* Desktop "Create New" button removed */}
 
       {/* Main content with fixed sidebar and scrollable content */}
-      <div className="flex flex-1 pt-[64px]"> {/* pt-[64px] to account for fixed header height */}
+      <div className={`flex flex-1 ${!isLoggedIn ? 'pt-[64px]' : ''}`}> {/* pt-[64px] to account for fixed header height only for non-logged-in users */}
         {/* Fixed sidebar for desktop */}
-        <div className={`fixed left-0 top-[64px] bottom-0 z-30 hidden lg:flex flex-col border-r border-border transition-all duration-300 ${
+        <div className={`fixed left-0 ${!isLoggedIn ? 'top-[64px]' : 'top-0'} bottom-0 z-30 hidden lg:flex flex-col transition-all duration-300 ${
           sidebarCollapsed ? 'w-16' : 'w-64'
         }`}>
           <SidebarNav 

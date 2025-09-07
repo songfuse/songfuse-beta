@@ -17,8 +17,7 @@ import PlaylistCard from "../components/PlaylistCard";
 import PlaylistCoverPlaceholder from "../components/PlaylistCoverPlaceholder";
 import SpotifyPlaylistCover from "../components/SpotifyPlaylistCover";
 import SpotifyBadge from "../components/SpotifyBadge";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import SearchForm from "../components/SearchForm";
 import { Search } from "lucide-react";
 
 interface Playlist {
@@ -248,69 +247,28 @@ const MyPlaylists = () => {
 
   return (
     <Layout playlists={playlists}>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container px-2 py-4 max-w-6xl">
         <div className="mb-6">
-          <div className="flex items-center gap-2">
-          <h1 className="font-bold bg-gradient-to-r from-teal-400 to-[#1DB954] text-transparent bg-clip-text text-[40px]">My Playlists</h1>
-          {!isLoading && !isError && (
-            <span className="text-sm text-muted-foreground font-normal bg-muted border-border px-2 py-0.5 rounded-full">
-              {playlists.length} {playlists.length === 1 ? 'playlist' : 'playlists'}
-            </span>
-          )}
-        </div>
-        
-        {/* Search Form */}
-        <form onSubmit={handleSearch} className="flex flex-col gap-4 mb-8 md:flex-row mt-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder={searchType === "description" ? "Search by description..." : "Search by title..."}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                className="bg-background border border-input rounded-md shadow-sm w-full pl-10 focus:ring-1 focus:ring-ring focus:border-ring text-foreground"
-              />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-muted-foreground" />
-              </div>
-              {inputValue && (
-                <button
-                  type="button"
-                  onClick={() => setInputValue("")}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
+          <div className="flex items-center gap-2 mb-4">
+            <h1 className="font-bold bg-gradient-to-r from-teal-400 to-[#1DB954] text-transparent bg-clip-text text-2xl md:text-3xl lg:text-[40px] leading-normal py-1">My Playlists</h1>
+            {!isLoading && !isError && (
+              <span className="text-sm text-muted-foreground font-normal bg-muted border-border px-2 py-0.5 rounded-full">
+                {playlists.length} {playlists.length === 1 ? 'playlist' : 'playlists'}
+              </span>
+            )}
           </div>
           
-          <div className="flex gap-2">
-            <Select 
-              value={searchType} 
-              onValueChange={(value) => setSearchType(value as "title" | "description")}
-            >
-              <SelectTrigger className="bg-background border border-input rounded-md shadow-sm text-foreground w-[180px]">
-                <SelectValue placeholder="Search by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="title">Title</SelectItem>
-                <SelectItem value="description">Description</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button 
-              type="submit" 
-              className="bg-primary hover:bg-primary/80"
-            >
-              <Search className="h-4 w-4 mr-2" />
-              Search
-            </Button>
-          </div>
-        </form>
-      </div>
+          {/* Search Form */}
+          <SearchForm
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+            searchType={searchType}
+            setSearchType={setSearchType}
+            onSearch={handleSearch}
+          />
+        </div>
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6">
           {[...Array(9)].map((_, i) => (

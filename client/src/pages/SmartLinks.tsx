@@ -52,7 +52,8 @@ const SmartLinks = () => {
 
   // Fetch user's smart links
   const { data: smartLinks = [], isLoading, refetch } = useQuery<SmartLink[]>({
-    queryKey: ['/api/v2/users/1/smart-links'],
+    queryKey: ['/api/v2/users', user?.id, 'smart-links'],
+    queryFn: () => fetch(`/api/v2/users/${user?.id}/smart-links`).then(res => res.json()),
     enabled: !!user,
   });
 
@@ -68,7 +69,7 @@ const SmartLinks = () => {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v2/users/1/smart-links'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v2/users', user?.id, 'smart-links'] });
       refetch(); // Force immediate refetch
       toast({
         title: "Smart link deleted",
@@ -135,18 +136,18 @@ const SmartLinks = () => {
 
   // Fetch playlists to get cover images and track counts
   const { data: playlists = [] } = useQuery({
-    queryKey: ['/api/playlists-with-counts', 'userId=1'],
-    queryFn: () => fetch('/api/playlists-with-counts?userId=1').then(res => res.json()),
+    queryKey: ['/api/playlists-with-counts', `userId=${user?.id}`],
+    queryFn: () => fetch(`/api/playlists-with-counts?userId=${user?.id}`).then(res => res.json()),
     enabled: !!user,
   });
 
   // Create a lookup map for playlist data
-  const playlistMap = new Map((playlists as any[]).map((p: any) => [p.id, p]));
+  const playlistMap = new Map(Array.isArray(playlists) ? playlists.map((p: any) => [p.id, p]) : []);
 
   if (!user) {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container px-2 py-4 max-w-6xl">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-teal-400 to-green-500 bg-clip-text text-transparent">
               Playlist Sharing Links
@@ -161,7 +162,7 @@ const SmartLinks = () => {
   if (isLoading) {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container px-2 py-4 max-w-6xl">
           <h1 className="text-4xl font-bold mb-8 bg-gradient-to-r from-teal-400 to-green-500 bg-clip-text text-transparent">
             Playlist Sharing Links
           </h1>
@@ -186,9 +187,9 @@ const SmartLinks = () => {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container px-2 py-4 max-w-6xl">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-400 to-green-500 bg-clip-text text-transparent">
+          <h1 className="font-bold mb-4 bg-gradient-to-r from-teal-400 to-[#1DB954] text-transparent bg-clip-text text-2xl md:text-3xl lg:text-[40px] leading-normal py-1">
             Playlist Sharing Links
           </h1>
         </div>
@@ -232,18 +233,16 @@ const SmartLinks = () => {
 
       {/* Playlist Sharing Links List */}
       {smartLinks.length === 0 ? (
-        <Card className="text-center py-12">
-          <CardContent>
-            <Share2 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Playlist Sharing Links Yet</h3>
-            <p className="text-muted-foreground mb-4">
-              Create a playlist and share it to generate your first smart link!
-            </p>
-            <Button onClick={() => window.location.href = '/playlists'}>
-              View My Playlists
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="text-center py-16 max-w-md mx-auto">
+          <h2 className="text-2xl font-bold mb-3 bg-gradient-to-r from-teal-400 to-[#1DB954] text-transparent bg-clip-text">No playlist sharing links yet</h2>
+          <p className="text-muted-foreground mb-6">Create your first AI-powered playlist and it will appear here</p>
+          <button 
+            onClick={() => window.location.href = '/playlists'}
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-10 px-4 py-2 bg-[#1DB954] hover:bg-[#1ed760] text-white"
+          >
+            Create New Playlist
+          </button>
+        </div>
       ) : (
         <div className="space-y-4 mb-16">
           <h2 className="text-2xl font-bold bg-gradient-to-r from-teal-400 to-green-500 bg-clip-text text-transparent mb-4">Your Playlist Sharing Links</h2>

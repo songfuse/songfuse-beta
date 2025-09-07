@@ -164,8 +164,8 @@ export async function saveImageFromUrl(url: string, playlistId?: number): Promis
     
     // Process the image with Sharp
     const processedImage = await Sharp(buffer)
-      .resize(640, 640, { fit: 'cover' }) // Ensure square dimensions
-      .png({ quality: 90 }) // Use PNG format with good quality
+      .resize(1024, 1024, { fit: 'cover' }) // Ensure square dimensions at full resolution
+      .png({ quality: 95, compressionLevel: 6 }) // Use PNG format with high quality
       .toBuffer();
     
     console.log(`Processed image to: ${processedImage.length} bytes`);

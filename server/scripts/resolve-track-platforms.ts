@@ -144,12 +144,12 @@ async function processTracksInBatches(taskId: string, batchSize = 10) {
       FROM tracks t
       WHERE EXISTS (
         SELECT 1 FROM track_platform_ids pl
-        WHERE pl."trackId" = t.id
+        WHERE pl.track_id = t.id
         AND pl.platform = 'spotify'
       )
       AND NOT EXISTS (
         SELECT 1 FROM track_platform_ids pl
-        WHERE pl."trackId" = t.id
+        WHERE pl.track_id = t.id
         AND pl.platform != 'spotify'
       )
     `);
@@ -197,13 +197,13 @@ async function processTracksInBatches(taskId: string, batchSize = 10) {
       
       // Get batch of tracks
       const tracksQuery = await db.execute(sql`
-        SELECT t.id, t.title, pl."platformId" as spotify_id
+        SELECT t.id, t.title, pl.platform_id as spotify_id
         FROM tracks t
-        JOIN track_platform_ids pl ON pl."trackId" = t.id
+        JOIN track_platform_ids pl ON pl.track_id = t.id
         WHERE pl.platform = 'spotify'
         AND NOT EXISTS (
           SELECT 1 FROM track_platform_ids pl2
-          WHERE pl2."trackId" = t.id
+          WHERE pl2.track_id = t.id
           AND pl2.platform != 'spotify'
         )
         LIMIT ${batchSize} OFFSET ${offset}

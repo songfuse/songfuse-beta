@@ -123,7 +123,7 @@ export default function TermsOfService() {
 
         <div className="flex justify-center mt-8">
           <Link href="/">
-            <Button className="bg-[#d02b31] hover:bg-[#d02b31]/80 text-white px-6">
+            <Button>
               Back to Home
             </Button>
           </Link>

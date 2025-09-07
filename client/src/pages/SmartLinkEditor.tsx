@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Share2, Sparkles, Eye, ExternalLink, Music, Users, Upload, Check, Copy, Globe, MessageCircle } from "lucide-react";
+import { ArrowLeft, Share2, Sparkles, Eye, ExternalLink, Music, Users, Upload, Check, Copy, Globe, MessageCircle, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import Layout from "@/components/Layout";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Playlist {
   id: number;
@@ -54,6 +55,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
   const playlistId = propPlaylistId;
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -64,6 +66,11 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
 
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  
+  // External song functionality
+  const [externalSongUrl, setExternalSongUrl] = useState("");
+  const [isAddingExternalSong, setIsAddingExternalSong] = useState(false);
 
   const isEditing = !!shareId;
 
@@ -215,6 +222,89 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
     setFormData(prev => ({ ...prev, promotedTrackId: trackId }));
   };
 
+  // Add external Spotify song as featured track
+  const handleAddExternalSong = async () => {
+    if (!externalSongUrl.trim()) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid Spotify track URL",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate Spotify URL format
+    const spotifyTrackRegex = /^https:\/\/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/;
+    if (!spotifyTrackRegex.test(externalSongUrl)) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid Spotify track URL (e.g., https://open.spotify.com/track/...)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsAddingExternalSong(true);
+
+    try {
+      // Get user ID from context
+      const userId = user?.id || 1;
+
+      // Call the API to add external song to playlist first
+      const response = await fetch(`/api/playlist/${effectivePlaylistId}/add-external-song`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          spotifyUrl: externalSongUrl,
+          userId: userId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add external song');
+      }
+
+      const result = await response.json();
+
+      // Create a track object for the external song
+      const externalTrack: Track = {
+        id: result.track.spotifyId,
+        title: result.track.title || 'Unknown Title',
+        artist: result.track.artist || 'Unknown Artist',
+        album: result.track.album || 'Unknown Album',
+        duration: result.track.duration || 0,
+        albumCover: result.track.albumCoverImage || undefined,
+        dbId: result.track.id,
+        // Add duration_ms for UI compatibility
+        duration_ms: result.track.duration || 0
+      } as any;
+
+      // Set this as the selected track
+      setSelectedTrack(externalTrack);
+      setFormData(prev => ({ ...prev, promotedTrackId: result.track.id }));
+      setExternalSongUrl("");
+
+      toast({
+        title: "External Song Added!",
+        description: `"${result.track.title}" is now featured in your smart link`,
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error("Error adding external song:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add external song",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAddingExternalSong(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.promotedTrackId || !formData.title) {
@@ -243,6 +333,58 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
     });
   };
 
+  const generateAIDescription = async () => {
+    if (!playlist || !effectivePlaylistId) {
+      toast({
+        title: "Error",
+        description: "Playlist data not available",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingDescription(true);
+    
+    try {
+      const response = await fetch('/api/smart-links/generate-description', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          playlistId: effectivePlaylistId,
+          promotedTrackId: formData.promotedTrackId,
+          title: formData.title || (playlist as any).title
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate description');
+      }
+
+      const data = await response.json();
+      
+      setFormData(prev => ({
+        ...prev,
+        description: data.description
+      }));
+
+      toast({
+        title: "AI Description Generated!",
+        description: "A fresh description has been created for your smart link"
+      });
+    } catch (error) {
+      console.error('Error generating AI description:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate AI description. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingDescription(false);
+    }
+  };
+
   // Add debugging for state
   console.log('SmartLinkEditor render state:', {
     isEditing,
@@ -259,7 +401,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
   if (playlistLoading || (isEditing && smartLinkLoading)) {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container px-2 py-4 max-w-6xl">
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             <p className="ml-4">Loading {isEditing ? 'smart link data' : 'playlist data'}...</p>
@@ -272,7 +414,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
   if (smartLinkError) {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container px-2 py-4 max-w-6xl">
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold mb-4 text-red-600">Error Loading Playlist Sharing Link</h2>
             <p className="mb-4 text-gray-600">{smartLinkError.message}</p>
@@ -288,7 +430,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
   if (isEditing && !existingSmartLink) {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container px-2 py-4 max-w-6xl">
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold mb-4">Playlist Sharing Link Not Found</h2>
             <p className="mb-4 text-gray-600">The playlist sharing link you're trying to edit could not be found.</p>
@@ -304,7 +446,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
   if (!playlist) {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container px-2 py-4 max-w-6xl">
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold mb-4">Playlist Not Found</h2>
             <p className="mb-4 text-gray-600">Effective playlist ID: {effectivePlaylistId}</p>
@@ -319,7 +461,7 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container px-2 py-4 max-w-6xl">
         {/* Page Header */}
         <div className="mb-2">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-400 to-green-500 bg-clip-text text-transparent">
@@ -411,9 +553,8 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Share2 className="h-5 w-5 text-primary" />
-                  <span>Playlist Sharing Link Details</span>
+                <CardTitle>
+                  Playlist Sharing Link Details
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -429,13 +570,38 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-2">Description</label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium">Description</label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={generateAIDescription}
+                        disabled={isGeneratingDescription || !playlist}
+                        className="text-xs"
+                      >
+                        {isGeneratingDescription ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-2"></div>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="h-3 w-3 mr-2" />
+                            AI Generate
+                          </>
+                        )}
+                      </Button>
+                    </div>
                     <Textarea
                       value={formData.description}
                       onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="Describe what makes this playlist special..."
+                      placeholder="Describe what makes this playlist special... or use AI to generate a viral description!"
                       rows={4}
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Let AI create a trendy, marketing-savvy description based on your tracks and vibe
+                    </p>
                   </div>
 
                   <div>
@@ -499,6 +665,45 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
                         </div>
                       </div>
                     )}
+
+                    {/* Add External Song Section */}
+                    <div className="mb-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          <h4 className="font-medium text-gray-900 dark:text-white">Feature External Song</h4>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Add any song from Spotify to feature in your smart link. We'll automatically resolve all platform links.
+                        </p>
+                        <div className="flex space-x-2">
+                          <Input
+                            placeholder="https://open.spotify.com/track/..."
+                            value={externalSongUrl}
+                            onChange={(e) => setExternalSongUrl(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button
+                            onClick={handleAddExternalSong}
+                            disabled={!externalSongUrl || isAddingExternalSong}
+                            size="sm"
+                          >
+                            {isAddingExternalSong ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                                </svg>
+                                Add Song
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                     
                     <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-2">
                       {(playlist as any)?.tracks?.map((track: Track) => (
@@ -580,9 +785,8 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
             {/* Playlist Sharing Link Preview */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Globe className="h-5 w-5 text-blue-500" />
-                  <span>Playlist Sharing Link Preview</span>
+                <CardTitle>
+                  Playlist Sharing Link Preview
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -619,9 +823,8 @@ export default function SmartLinkEditor({ playlistId: propPlaylistId, shareId: p
             {/* Benefits Card */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  <span>Playlist Sharing Link Benefits</span>
+                <CardTitle>
+                  Playlist Sharing Link Benefits
                 </CardTitle>
               </CardHeader>
               <CardContent>

@@ -8,6 +8,7 @@ import SimplePlaylistEmbed from "./SimplePlaylistEmbed";
 import { DraggableTrackList } from "@/components/ui/DraggableTrackList";
 import { DraggableTrackItem } from "@/components/ui/DraggableTrackItem";
 import { FaShareAlt } from "react-icons/fa";
+import { ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/queryClient";
@@ -62,6 +63,32 @@ const PlaylistDetails = ({
     
   const handleImageError = () => {
     setImageError(true);
+  };
+
+  // Handle cover image view in new tab
+  const handleCoverView = async () => {
+    try {
+      // Check if we have an AI-generated cover image
+      if (!coverImage) {
+        toast({
+          title: "No cover image",
+          description: "There's no AI-generated cover image to view.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Open the cover image in a new tab
+      window.open(coverImage, '_blank');
+      
+    } catch (error: any) {
+      console.error('Failed to open cover:', error);
+      toast({
+        title: "Open failed",
+        description: "Could not open the cover image. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   // Handle track reordering via drag-and-drop
@@ -264,6 +291,18 @@ const PlaylistDetails = ({
                     <FaShareAlt className="h-3.5 w-3.5" />
                     Share
                   </Button>
+
+                  {/* View cover button - only show if there's an AI-generated cover */}
+                  {coverImage && (
+                    <Button 
+                      variant="outline"
+                      className="w-full border-muted-foreground/30 text-foreground hover:bg-muted flex items-center justify-center gap-2"
+                      onClick={handleCoverView}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View Cover
+                    </Button>
+                  )}
                 </>
               ) : (
                 <>
@@ -285,6 +324,18 @@ const PlaylistDetails = ({
                   <p className="text-xs text-muted-foreground text-center mt-2">
                     This playlist is saved in Songfuse
                   </p>
+
+                  {/* View cover button - only show if there's an AI-generated cover */}
+                  {coverImage && (
+                    <Button 
+                      variant="outline"
+                      className="w-full border-muted-foreground/30 text-foreground hover:bg-muted flex items-center justify-center gap-2"
+                      onClick={handleCoverView}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View Cover
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -320,48 +371,46 @@ const PlaylistDetails = ({
               <div className="text-center py-8 text-muted-foreground">
                 <p>No songs in this playlist.</p>
               </div>
-            ) : (
-              {(() => {
-                // User owns this playlist if they're logged in (all playlists in PlaylistDetails are user-owned)
-                const isOwner = !!user?.id;
-                
-                // Create tracks with consistent IDs for drag-and-drop
-                const tracksWithIds = tracks.map((track, index) => ({
-                  ...track,
-                  // Use Spotify ID if available, otherwise fallback to dbId or position
-                  dragId: track.id || track.dbId?.toString() || `track-${index}`
-                }));
-                
-                return (
-                  <DraggableTrackList
-                    tracks={tracksWithIds}
-                    onReorder={(reorderedTracks) => {
-                      // Remove the dragId property before passing to handleTrackReorder
-                      const cleanedTracks = reorderedTracks.map(({ dragId, ...track }) => track);
-                      handleTrackReorder(cleanedTracks);
-                    }}
-                    disabled={!isOwner}
-                    className="divide-y divide-border"
-                  >
-                    {tracksWithIds.map((track, index) => (
-                      <DraggableTrackItem
-                        key={track.dragId}
-                        id={track.dragId}
-                        disabled={!isOwner}
-                        showDragHandle={isOwner}
-                        className="py-2"
-                      >
-                        <SongItem
-                          track={track}
-                          index={index}
-                          onRemove={() => handleRemoveSong(index)}
-                        />
-                      </DraggableTrackItem>
-                    ))}
-                  </DraggableTrackList>
-                );
-              })()}
-            )}
+            ) : (() => {
+              // User owns this playlist if they're logged in (all playlists in PlaylistDetails are user-owned)
+              const isOwner = !!user?.id;
+              
+              // Create tracks with consistent IDs for drag-and-drop
+              const tracksWithIds = tracks.map((track, index) => ({
+                ...track,
+                // Use Spotify ID if available, otherwise fallback to dbId or position
+                dragId: track.id || track.dbId?.toString() || `track-${index}`
+              }));
+              
+              return (
+                <DraggableTrackList
+                  tracks={tracksWithIds}
+                  onReorder={(reorderedTracks) => {
+                    // Remove the dragId property before passing to handleTrackReorder
+                    const cleanedTracks = reorderedTracks.map(({ dragId, ...track }) => track);
+                    handleTrackReorder(cleanedTracks);
+                  }}
+                  disabled={!isOwner}
+                  className="divide-y divide-border"
+                >
+                  {tracksWithIds.map((track, index) => (
+                    <DraggableTrackItem
+                      key={track.dragId}
+                      id={track.dragId}
+                      disabled={!isOwner}
+                      showDragHandle={isOwner}
+                      className="py-2"
+                    >
+                      <SongItem
+                        track={track}
+                        index={index}
+                        onRemove={() => handleRemoveSong(index)}
+                      />
+                    </DraggableTrackItem>
+                  ))}
+                </DraggableTrackList>
+              );
+            })()}
           </Card>
         </div>
       </div>

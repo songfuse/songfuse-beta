@@ -129,7 +129,7 @@ export default function DiscoverPlaylistDetail(props: { id?: string, slug?: stri
 
   return (
     <Layout playlists={isLoggedIn ? userPlaylists : []}>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container px-2 py-4 max-w-6xl">
         
         {!isLoggedIn && (
           <div className="mb-6 p-4 rounded-lg bg-card shadow-md border border-border dark:bg-muted dark:border-border flex flex-col md:flex-row gap-4 items-center justify-between">

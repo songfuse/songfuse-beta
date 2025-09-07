@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import path from "path";
 import { registerRoutes } from "./routes-fixed"; // Switch back to the working routes-fixed.ts
 import { setupVite, serveStatic, log } from "./vite";
@@ -20,6 +21,7 @@ import { addThumbnailServiceRoutes } from "./api/thumbnail-service"; // Add thum
 import albumsRoutes from "./api/albumsRoutes"; // Add top albums routes
 import { apiErrorMiddleware } from "./middlewares/apiErrorHandler"; // Import our new API error middleware
 import { initCoverImageMonitoring } from "./services/coverImageMonitoring"; // Import cover image monitoring service
+import { odesliBackgroundService } from "./services/odesliBackgroundService"; // Import Odesli background service
 import { 
   generatePlaylistSocialImages, 
   getPlaylistSocialImages, 
@@ -54,6 +56,8 @@ const app = express();
 // Increase JSON payload limit to 50MB for large track imports
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+// Add cookie parser middleware
+app.use(cookieParser());
 
 // Import and use news routes
 import newsRoutes from './api/newsRoutes';
@@ -1364,6 +1368,16 @@ app.use((req, res, next) => {
   // Will implement simpler approach that works with existing setup
   // const { handleSocialMetaRequest } = await import('./social-meta-handler');
 
+  // Add Odesli background service status endpoint
+  app.get('/api/odesli-status', (req, res) => {
+    const status = odesliBackgroundService.getStatus();
+    res.json({
+      service: 'odesli-background',
+      ...status,
+      message: status.isRunning ? 'Background service is running' : 'Background service is stopped'
+    });
+  });
+
   // Add API error handling middleware for all /api/* routes
   // This ensures API routes always return JSON responses, even when errors occur
   app.use(apiErrorMiddleware);
@@ -1573,6 +1587,99 @@ app.use((req, res, next) => {
     }
   });
 
+  // AI description generation for smart links
+  app.post("/api/smart-links/generate-description", async (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    
+    console.log('AI Description API: Request received', req.body);
+    
+    try {
+      const { playlistId, promotedTrackId, title } = req.body;
+      
+      console.log('AI Description API: Parsed request', { playlistId, promotedTrackId, title });
+      
+      if (!playlistId) {
+        return res.status(400).json({ message: 'Playlist ID is required' });
+      }
+
+      // Get playlist data with tracks
+      const { storage } = await import('./storage');
+      const playlist = await storage.getPlaylist(playlistId);
+      
+      if (!playlist) {
+        return res.status(404).json({ message: 'Playlist not found' });
+      }
+
+      // Get tracks for the playlist using direct database query
+      const { pool } = await import('./db');
+      const client = await pool.connect();
+      
+      console.log(`AI Description API: Connected to database for playlist ${playlistId}`);
+      
+      try {
+        const tracksQuery = `
+          SELECT 
+            t.id,
+            t.title,
+            t.duration AS duration_ms,
+            alb.title AS album_name,
+            COALESCE(
+              (SELECT 
+                json_agg(json_build_object('id', a.id, 'name', a.name))
+                FROM tracks_to_artists tta 
+                JOIN artists a ON tta.artist_id = a.id
+                WHERE tta.track_id = t.id
+              ), 
+              '[]'::json
+            ) AS artists_json
+          FROM playlist_tracks pt
+          JOIN tracks t ON pt.track_id = t.id
+          LEFT JOIN albums alb ON t.album_id = alb.id
+          WHERE pt.playlist_id = $1
+          ORDER BY pt.position ASC
+          LIMIT 10
+        `;
+        
+        const tracksResult = await client.query(tracksQuery, [playlistId]);
+        
+        console.log(`AI Description API: Found ${tracksResult.rows.length} tracks for playlist ${playlistId}`);
+        console.log('Sample track:', tracksResult.rows[0]);
+        
+        if (!tracksResult.rows || tracksResult.rows.length === 0) {
+          return res.status(400).json({ message: 'No tracks found in playlist' });
+        }
+
+        // Convert database results to the format expected by the AI generation function
+        const tracks = tracksResult.rows.map(track => ({
+          id: track.id,
+          title: track.title,
+          artist: Array.isArray(track.artists_json) 
+            ? track.artists_json.map((a: any) => a.name).join(', ')
+            : 'Unknown Artist',
+          album: track.album_name || undefined,
+          duration: track.duration_ms ? Math.floor(track.duration_ms / 1000) : undefined
+        }));
+        
+        // Generate AI description using existing OpenAI service
+        const { generateSmartLinkDescription } = await import('./openai');
+        const description = await generateSmartLinkDescription({
+          playlistTitle: playlist.title,
+          playlistDescription: playlist.description || '',
+          tracks: tracks,
+          promotedTrackId: promotedTrackId,
+          smartLinkTitle: title || playlist.title
+        });
+
+        return res.json({ description });
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('Error generating smart link description:', error);
+      return res.status(500).json({ message: 'Failed to generate description', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  });
+
   // Alternative endpoint format for SmartLinkPublic component compatibility
   app.get("/api/playlists/:id/smart-link", async (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/json');
@@ -1718,10 +1825,26 @@ app.use((req, res, next) => {
     console.log(`📱 Frontend: http://localhost:${port}`);
     console.log(`🔧 API: http://localhost:${port}/api`);
     
+    // Start Odesli background service for smart links
+    odesliBackgroundService.start();
+    
     // Cover image sync removed as per user request
   });
 })().catch(error => {
   console.error("💥 Server startup failed:", error);
   console.error("Stack trace:", error.stack);
   process.exit(1);
+});
+
+// Graceful shutdown handlers
+process.on('SIGTERM', () => {
+  console.log('🛑 SIGTERM received, shutting down gracefully...');
+  odesliBackgroundService.stop();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 SIGINT received, shutting down gracefully...');
+  odesliBackgroundService.stop();
+  process.exit(0);
 });

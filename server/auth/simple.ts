@@ -3,6 +3,7 @@ import { db } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { loadSessions, saveSessions, cleanupAndSaveSessions } from './sessionStorage';
 
 // User interface matching database schema
 interface User {
@@ -13,21 +14,48 @@ interface User {
   picture?: string;
 }
 
-// Simple session storage (in-memory for now, could be moved to Redis later)
-const sessions = new Map<string, User>();
+// Persistent session storage
+const sessions = loadSessions();
 
 // Generate a simple session ID
 const generateSessionId = (): string => {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 };
 
+// Clean up expired sessions
+const cleanupExpiredSessions = () => {
+  cleanupAndSaveSessions(sessions);
+};
+
+// Run cleanup every hour
+setInterval(cleanupExpiredSessions, 60 * 60 * 1000);
+
 // Simple authentication middleware
 export const simpleAuth = (req: Request, res: Response, next: NextFunction) => {
   // Check for session cookie
   const sessionId = req.cookies?.sessionId;
+  console.log("Auth middleware - sessionId:", sessionId);
+  console.log("Auth middleware - sessions map size:", sessions.size);
   
   if (sessionId && sessions.has(sessionId)) {
-    (req as any).user = sessions.get(sessionId);
+    const sessionData = sessions.get(sessionId);
+    const now = Date.now();
+    
+    console.log("Session data found:", sessionData);
+    console.log("Session expires at:", sessionData?.expiresAt, "Current time:", now);
+    
+    // Check if session is still valid
+    if (sessionData && sessionData.expiresAt > now) {
+      console.log("Session is valid, setting user:", sessionData.user);
+      (req as any).user = sessionData.user;
+    } else {
+      console.log("Session expired, removing it");
+      // Session expired, remove it
+      sessions.delete(sessionId);
+      saveSessions(sessions);
+    }
+  } else {
+    console.log("No valid session found");
   }
   
   next();
@@ -62,6 +90,7 @@ export const register = async (req: Request, res: Response) => {
       .values({
         username: email, // Using email as username
         password: hashedPassword,
+        name: name, // Save the user's full name
         credits: 5 // Start with 5 credits
       })
       .returning();
@@ -73,8 +102,8 @@ export const register = async (req: Request, res: Response) => {
         id: newUser.id,
         username: newUser.username,
         email: newUser.username, // Same as username for now
-        name: name,
-        picture: `https://via.placeholder.com/40x40/4F46E5/FFFFFF?text=${name.charAt(0).toUpperCase()}`
+        name: newUser.name || name, // Use the saved name from DB, fallback to input
+        picture: `https://via.placeholder.com/40x40/4F46E5/FFFFFF?text=${(newUser.name || name).charAt(0).toUpperCase()}`
       }
     });
   } catch (error) {
@@ -121,11 +150,15 @@ export const login = async (req: Request, res: Response) => {
     };
     
     const sessionId = generateSessionId();
-    sessions.set(sessionId, user);
+    const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours from now
+    sessions.set(sessionId, { user, expiresAt });
+    saveSessions(sessions);
     
     res.cookie('sessionId', sessionId, {
       httpOnly: true,
       secure: false, // Set to true in production with HTTPS
+      sameSite: 'lax', // Allow cookies to be sent with same-site requests
+      path: '/', // Make cookie available for all paths
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
     
@@ -150,6 +183,7 @@ export const logout = (req: Request, res: Response) => {
   
   if (sessionId) {
     sessions.delete(sessionId);
+    saveSessions(sessions);
     res.clearCookie('sessionId');
   }
   
@@ -160,17 +194,21 @@ export const logout = (req: Request, res: Response) => {
 export const getCurrentUser = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    console.log("getCurrentUser - user from request:", user);
     
     if (user) {
+      console.log("User found, fetching fresh data from database for user ID:", user.id);
       // Get fresh user data from database
       const dbUsers = await db
         .select()
         .from(users)
         .where(eq(users.id, user.id));
       
+      console.log("Database query result:", dbUsers);
+      
       if (dbUsers.length > 0) {
         const dbUser = dbUsers[0];
-        res.json({
+        const responseData = {
           authenticated: true,
           user: {
             id: dbUser.id,
@@ -179,14 +217,18 @@ export const getCurrentUser = async (req: Request, res: Response) => {
             picture: `https://via.placeholder.com/40x40/4F46E5/FFFFFF?text=${dbUser.username.charAt(0).toUpperCase()}`,
             credits: dbUser.credits
           }
-        });
+        };
+        console.log("Sending authenticated response:", responseData);
+        res.json(responseData);
       } else {
+        console.log("User not found in database, sending unauthenticated response");
         res.json({
           authenticated: false,
           user: null
         });
       }
     } else {
+      console.log("No user in request, sending unauthenticated response");
       res.json({
         authenticated: false,
         user: null

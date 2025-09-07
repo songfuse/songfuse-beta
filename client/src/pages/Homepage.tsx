@@ -11,7 +11,7 @@ export default function Homepage() {
         description="Your personalized SongFuse dashboard with analytics and insights"
       />
       
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container px-2 py-4 max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

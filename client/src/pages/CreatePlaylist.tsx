@@ -49,7 +49,7 @@ const CreatePlaylist = () => {
 
   return (
     <Layout playlists={playlists}>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container px-2 py-4 max-w-6xl">
         <div className="flex flex-col items-center justify-center h-full">
           <div className="max-w-2xl w-full text-center">
             

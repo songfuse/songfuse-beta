@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Share2, Star, Copy, ExternalLink, CheckCircle } from "lucide-react";
+import { Share2, Star, Copy, ExternalLink, CheckCircle, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -63,6 +63,7 @@ export default function CreateSmartLinkModal({ isOpen, onClose, playlist, songs,
   const [customCoverImage, setCustomCoverImage] = useState(existingSmartLink?.customCoverImage || "");
   const [createdLink, setCreatedLink] = useState<SmartLink | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -193,6 +194,45 @@ export default function CreateSmartLinkModal({ isOpen, onClose, playlist, songs,
     window.open(shareUrl, '_blank');
   };
 
+  const generateAIDescription = async () => {
+    setIsGeneratingDescription(true);
+    
+    try {
+      const response = await fetch('/api/smart-links/generate-description', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          playlistId: playlist.id,
+          promotedTrackId: promotedTrackId,
+          title: title || playlist.title
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate description');
+      }
+
+      const data = await response.json();
+      setDescription(data.description);
+
+      toast({
+        title: "AI Description Generated!",
+        description: "A fresh description has been created for your smart link"
+      });
+    } catch (error) {
+      console.error('Error generating AI description:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate AI description. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingDescription(false);
+    }
+  };
+
   const handleClose = () => {
     setCreatedLink(null);
     setTitle(playlist.title || "");
@@ -211,8 +251,7 @@ export default function CreateSmartLinkModal({ isOpen, onClose, playlist, songs,
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
+            <DialogTitle>
               Playlist Sharing Link Created!
             </DialogTitle>
           </DialogHeader>
@@ -266,8 +305,7 @@ export default function CreateSmartLinkModal({ isOpen, onClose, playlist, songs,
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Share2 className="w-5 h-5" />
+          <DialogTitle>
             {isEditing ? 'Edit Playlist Sharing Link' : 'Create Playlist Sharing Link'}
           </DialogTitle>
         </DialogHeader>
@@ -285,14 +323,39 @@ export default function CreateSmartLinkModal({ isOpen, onClose, playlist, songs,
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description (Optional)</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={generateAIDescription}
+                disabled={isGeneratingDescription}
+                className="text-xs"
+              >
+                {isGeneratingDescription ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary mr-2"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-3 w-3 mr-2" />
+                    AI Generate
+                  </>
+                )}
+              </Button>
+            </div>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add a description to entice listeners..."
+              placeholder="Add a description to entice listeners... or use AI to generate a viral description!"
               rows={3}
             />
+            <p className="text-xs text-muted-foreground">
+              Let AI create a trendy, marketing-savvy description based on your tracks and vibe
+            </p>
           </div>
 
           <div className="space-y-2">

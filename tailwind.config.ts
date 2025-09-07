@@ -5,7 +5,8 @@ export default {
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     fontFamily: {
-      sans: ["Work Sans", "sans-serif"],
+      sans: ["DM Sans", "sans-serif"],
+      mono: ["JetBrains Mono", "monospace"],
     },
     extend: {
       borderRadius: {

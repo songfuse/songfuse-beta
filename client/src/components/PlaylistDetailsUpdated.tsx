@@ -12,7 +12,7 @@ import { DraggableTrackList } from "@/components/ui/DraggableTrackList";
 import { DraggableTrackItem } from "@/components/ui/DraggableTrackItem";
 import { FaShareAlt } from "react-icons/fa";
 import { FaLock, FaGlobe } from "react-icons/fa";
-import { Share2, Link } from "lucide-react";
+import { Share2, Link, Camera, Upload, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
@@ -60,6 +60,8 @@ const PlaylistDetailsUpdated = ({
   const [savedToSpotify, setSavedToSpotify] = useState(!!spotifyUrl); // Track if saved to Spotify
   const [hasSmartLink, setHasSmartLink] = useState(false); // Track if playlist sharing link exists
   const [smartLinkData, setSmartLinkData] = useState<any>(null); // Store playlist sharing link data
+  const [isUploadingCover, setIsUploadingCover] = useState(false); // Track cover upload state
+  const [isGeneratingCover, setIsGeneratingCover] = useState(false); // Track AI cover generation state
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -221,8 +223,8 @@ const PlaylistDetailsUpdated = ({
       // Update local state immediately for smooth UI
       setTracks(reorderedTracks);
 
-      const userId = localStorage.getItem('userId');
-      if (!userId) {
+      // Check if user is authenticated
+      if (!user?.id) {
         toast({
           title: "Authentication Error",
           description: "You need to be logged in to reorder tracks.",
@@ -232,7 +234,7 @@ const PlaylistDetailsUpdated = ({
       }
 
       // Send reorder request to the server
-      const response = await apiRequest('POST', `/api/playlist/${playlistId}/reorder-tracks?userId=${userId}`, {
+      const response = await apiRequest('POST', `/api/playlist/${playlistId}/reorder-tracks?userId=${user.id}`, {
         trackOrder: reorderedTracks.map((track, index) => ({
           trackId: track.dbId, // Use dbId as trackId
           position: index
@@ -273,8 +275,8 @@ const PlaylistDetailsUpdated = ({
   // Handle song removal
   const handleRemoveSong = async (index: number): Promise<void> => {
     try {
-      const userId = localStorage.getItem('userId');
-      if (!userId) {
+      // Check if user is authenticated
+      if (!user?.id) {
         toast({
           title: "Authentication Error",
           description: "You need to be logged in to remove songs.",
@@ -286,7 +288,7 @@ const PlaylistDetailsUpdated = ({
       // Call the API to delete the song using our new synchronized deletion endpoint
       const response = await apiRequest(
         'DELETE', 
-        `/api/playlist/${playlistId}/track/${index}?userId=${userId}`,
+        `/api/playlist/${playlistId}/track/${index}?userId=${user.id}`,
         {}
       );
       
@@ -336,8 +338,8 @@ const PlaylistDetailsUpdated = ({
     try {
       setIsTogglingVisibility(true);
       
-      const userId = localStorage.getItem('userId');
-      if (!userId) {
+      // Check if user is authenticated
+      if (!user?.id) {
         toast({
           title: "Authentication Error",
           description: "You need to be logged in to change playlist visibility.",
@@ -357,7 +359,7 @@ const PlaylistDetailsUpdated = ({
         },
         body: JSON.stringify({
           isPublic: newVisibility,
-          userId: parseInt(userId)
+          userId: user.id
         })
       });
       
@@ -385,6 +387,192 @@ const PlaylistDetailsUpdated = ({
     }
   };
 
+  // Handle cover image upload
+  const handleCoverImageUpload = async (file: File) => {
+    try {
+      setIsUploadingCover(true);
+      
+      // Check if user is authenticated
+      if (!user?.id) {
+        toast({
+          title: "Authentication Error",
+          description: "You need to be logged in to upload cover images.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 10MB.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Convert file to data URL
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataUrl = e.target?.result as string;
+        
+        try {
+          // Call the API to update the cover image
+          const response = await apiRequest(
+            'PUT',
+            `/api/playlist/${playlistId}/cover-image?userId=${user.id}`,
+            { coverImageUrl: dataUrl }
+          );
+          
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to upload cover image');
+          }
+          
+          const result = await response.json();
+          
+          // Update local state immediately
+          setLocalCoverImage(result.coverImageUrl);
+          setImageVersion(Date.now());
+          
+          // Invalidate queries to refresh data
+          queryClient.invalidateQueries({ queryKey: [`/api/playlist/${playlistId}`] });
+          
+          // Show success message
+          toast({
+            title: "Cover image updated",
+            description: result.spotifySync 
+              ? "Your cover image has been updated and synced to Spotify"
+              : "Your cover image has been updated successfully",
+          });
+          
+        } catch (error: any) {
+          console.error('Failed to upload cover image:', error);
+          toast({
+            title: "Upload failed",
+            description: error?.message || "Could not upload cover image. Please try again.",
+            variant: "destructive"
+          });
+        } finally {
+          setIsUploadingCover(false);
+        }
+      };
+      
+      reader.readAsDataURL(file);
+      
+    } catch (error: any) {
+      console.error('Error processing file:', error);
+      toast({
+        title: "Error",
+        description: "Could not process the selected file. Please try again.",
+        variant: "destructive"
+      });
+      setIsUploadingCover(false);
+    }
+  };
+  
+  // Handle file input change
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleCoverImageUpload(file);
+    }
+  };
+
+  // Handle AI cover generation
+  const handleAICoverGeneration = async () => {
+    try {
+      setIsGeneratingCover(true);
+      
+      // Check if user is authenticated
+      if (!user?.id) {
+        toast({
+          title: "Authentication Error",
+          description: "You need to be logged in to generate cover images.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Call the API to generate AI cover image
+      const response = await apiRequest(
+        'POST',
+        `/api/playlist/${playlistId}/generate-cover?userId=${user.id}`,
+        {}
+      );
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate cover image');
+      }
+      
+      const result = await response.json();
+      
+      // Update local state immediately
+      setLocalCoverImage(result.coverImageUrl);
+      setImageVersion(Date.now());
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: [`/api/playlist/${playlistId}`] });
+      
+      // Show success message
+      toast({
+        title: "AI Cover Generated",
+        description: result.spotifySync 
+          ? "Your AI-generated cover has been created and synced to Spotify"
+          : "Your AI-generated cover has been created successfully",
+      });
+      
+    } catch (error: any) {
+      console.error('Failed to generate AI cover:', error);
+      toast({
+        title: "Generation failed",
+        description: error?.message || "Could not generate cover image. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingCover(false);
+    }
+  };
+
+  // Handle cover image view in new tab
+  const handleCoverView = async () => {
+    try {
+      // Check if we have an AI-generated cover image
+      const coverImageUrl = localCoverImage || coverImage;
+      if (!coverImageUrl) {
+        toast({
+          title: "No cover image",
+          description: "There's no AI-generated cover image to view.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Open the cover image in a new tab
+      window.open(coverImageUrl, '_blank');
+      
+    } catch (error: any) {
+      console.error('Failed to open cover:', error);
+      toast({
+        title: "Open failed",
+        description: "Could not open the cover image. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleSaveToSpotify = async () => {
     if (tracks.length === 0) {
       toast({
@@ -398,14 +586,21 @@ const PlaylistDetailsUpdated = ({
     try {
       setIsSaving(true);
       
-      // Call the server to export the playlist to Spotify using our direct export endpoint
-      const userId = localStorage.getItem('userId');
+      // Check if user is authenticated
+      if (!user?.id) {
+        toast({
+          title: "Authentication Error",
+          description: "You need to be logged in to save playlists to Spotify.",
+          variant: "destructive"
+        });
+        return;
+      }
       
       // Try the direct export endpoint first
       const response = await apiRequest(
         'POST', 
         `/api/playlist/${playlistId}/direct-export-to-spotify`, 
-        { userId: parseInt(userId || '1') }
+        { userId: user.id }
       );
       
       if (!response.ok) {
@@ -546,7 +741,7 @@ const PlaylistDetailsUpdated = ({
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row gap-6">
           <div className="w-full md:w-48 lg:w-60">
-            <div className="bg-muted rounded-lg overflow-hidden aspect-square relative">
+            <div className="bg-muted rounded-lg overflow-hidden aspect-square relative group">
               {/* 
                 Priority order for cover images:
                 1. Songfuse-generated cover (AI or user-uploaded)
@@ -564,6 +759,65 @@ const PlaylistDetailsUpdated = ({
               
               {/* Display Spotify badge when playlist has a Spotify URL */}
               {localSpotifyUrl && <SpotifyBadge className="absolute top-2 right-2" />}
+              
+              {/* Cover image upload overlay */}
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  {/* Upload button */}
+                  <div className="flex flex-col items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                      id="cover-upload-input"
+                      disabled={isUploadingCover || isGeneratingCover}
+                    />
+                    <label
+                      htmlFor="cover-upload-input"
+                      className="flex flex-col items-center gap-2 cursor-pointer p-3 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isUploadingCover ? (
+                        <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full" />
+                      ) : (
+                        <Upload className="h-6 w-6 text-white" />
+                      )}
+                      <span className="text-white text-sm font-medium">
+                        {isUploadingCover ? 'Uploading...' : 'Upload Image'}
+                      </span>
+                    </label>
+                  </div>
+                  
+                  {/* AI Generate button */}
+                  <button
+                    onClick={handleAICoverGeneration}
+                    disabled={isUploadingCover || isGeneratingCover}
+                    className="flex flex-col items-center gap-2 cursor-pointer p-3 rounded-lg bg-white/20 hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isGeneratingCover ? (
+                      <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full" />
+                    ) : (
+                      <Camera className="h-6 w-6 text-white" />
+                    )}
+                    <span className="text-white text-sm font-medium">
+                      {isGeneratingCover ? 'Generating...' : 'AI Generate'}
+                    </span>
+                  </button>
+
+                  {/* View cover button - only show if there's an AI-generated cover */}
+                  {(localCoverImage || coverImage) && (
+                    <button
+                      onClick={handleCoverView}
+                      className="flex flex-col items-center gap-1 cursor-pointer p-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4 text-white" />
+                      <span className="text-white text-xs font-medium">
+                        View
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
             
             <div className="flex flex-col gap-2">
@@ -778,6 +1032,8 @@ const PlaylistDetailsUpdated = ({
             title: track.name,
             artist: track.artists?.[0]?.name || 'Unknown Artist',
             album: track.album?.name,
+            album_cover_image: track.album_cover_image || track.album?.images?.[0]?.url,
+            album_name: track.album_name || track.album?.name,
             duration: track.duration_ms
           }))}
           existingSmartLink={smartLinkData}

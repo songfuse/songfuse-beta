@@ -6,8 +6,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import PlaylistCoverPlaceholder from "./PlaylistCoverPlaceholder";
 import { useQuery } from "@tanstack/react-query";
-import { Music, ChevronLeft, ChevronRight } from "lucide-react";
+import { Music, ChevronLeft, ChevronRight, Compass, Plus, Edit, Palette, Grid3X3, MessageCircle, ThumbsUp, User, HelpCircle, Bell, Sun, Moon, LogOut, LogIn, Home, Link } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import ThemeToggle from "./ThemeToggle";
 
 type NavItem = {
   href: string;
@@ -35,17 +36,27 @@ interface SidebarNavProps {
 const SidebarNav = ({ playlists: providedPlaylists = [], onNavItemClick, useProvidedPlaylists = false, collapsed = false, onToggle }: SidebarNavProps) => {
   const [location, navigate] = useLocation();
   const logo = useThemedLogo();
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   
   // Safely access auth context
   let user: any = null;
+  let logout: (() => void) | undefined;
   try {
     const auth = useAuth();
     user = auth.user;
+    logout = auth.logout;
   } catch (error) {
     console.log("Auth context not yet available in SidebarNav");
   }
   
   const isLoggedIn = !!user;
+  
+  // Initialize theme on component mount
+  useEffect(() => {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialTheme = localStorage.getItem('theme') as 'light' | 'dark' || (prefersDark ? 'dark' : 'light');
+    setTheme(initialTheme);
+  }, []);
   
   // Fetch playlists directly if not provided or if useProvidedPlaylists is false
   const { data: fetchedPlaylists = [], refetch: refetchPlaylists } = useQuery({
@@ -96,97 +107,78 @@ const SidebarNav = ({ playlists: providedPlaylists = [], onNavItemClick, useProv
   // Use either the provided playlists or the ones we fetched
   const playlists = useProvidedPlaylists ? providedPlaylists : fetchedPlaylists;
   
-  // Create nav items based on authentication status
+  // Fetch user credits
+  const { data: creditsData } = useQuery({
+    queryKey: [`/api/users/${user?.id}/credits`],
+    enabled: !!user?.id,
+  });
+  
+  const credits = (creditsData as any)?.credits ?? 0;
+  
+  // Create nav items - simplified to only show the 5 main sections
   const navItems: NavItem[] = [
-    // Homepage is only for logged-in users
+    // Homepage - for logged-in users
     ...(isLoggedIn ? [{
       href: "/homepage",
       label: "Homepage",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h12a1 1 0 001-1V10" />
-        </svg>
-      )
+      icon: <Home className="h-5 w-5" />
     }] : []),
     
-    // My Playlists is only for logged-in users
-    ...(isLoggedIn ? [{
-      href: "/playlists",
-      label: "My Playlists",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-        </svg>
-      )
-    }] : []),
-    
-    // Playlist Sharing Links is only for logged-in users
-    ...(isLoggedIn ? [{
-      href: "/smart-links",
-      label: "Playlist Sharing Links",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-        </svg>
-      )
-    }] : []),
-    
-    // Top 25 Albums is for everyone
-    {
-      href: "/albums",
-      label: "Top 25 Albums",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z M21 16c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z M9 10l12-3" />
-        </svg>
-      )
-    },
-    
-    // Discover is for everyone
+    // Discover - for everyone
     {
       href: "/discover",
       label: "Discover",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      )
+      icon: <Compass className="h-5 w-5" />
     },
     
-    // Login option for non-authenticated users
-    ...(isLoggedIn ? [] : [{
-      href: "/login",
-      label: "Login",
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-        </svg>
-      )
-    }])
+    // My Playlists - for logged-in users
+    ...(isLoggedIn ? [{
+      href: "/playlists",
+      label: "My Playlists",
+      icon: <Music className="h-5 w-5" />
+    }] : []),
+    
+    // Smart Links - for logged-in users
+    ...(isLoggedIn ? [{
+      href: "/smart-links",
+      label: "Smart Links",
+      icon: <Link className="h-5 w-5" />
+    }] : []),
+    
+    // Top Albums - for everyone
+    {
+      href: "/albums",
+      label: "Top Albums",
+      icon: <Grid3X3 className="h-5 w-5" />
+    }
   ];
 
   return (
-    <aside className="w-full h-full bg-card flex flex-col relative">
-      {/* Mobile Logo */}
-      <div className="flex items-center justify-center py-6 mb-2 lg:hidden">
-        <img 
-          src={logo} 
-          alt="Songfuse Logo" 
-          className="h-8 text-foreground" 
-        />
+    <aside className="w-full h-full bg-background flex flex-col relative">
+      {/* Title at top - Midjourney style */}
+      <div className={cn(
+        "pt-6",
+        collapsed ? "px-2 flex justify-center" : "px-6"
+      )}>
+        <h1 className="text-xl font-semibold text-foreground">
+          {collapsed ? "S" : "Songfuse"}
+        </h1>
       </div>
       
       {/* Scrollable Content Area */}
-      <div className="overflow-y-auto flex-1" style={{ paddingBottom: "61px" }}>
-        <nav className="p-4">
-          {/* Nav Items */}
-          <ul className="space-y-2">
+      <div className="overflow-y-auto flex-1" style={{ paddingBottom: "200px" }}>
+        <nav className={cn(
+          "p-4",
+          collapsed ? "px-2" : ""
+        )}>
+          {/* Main Navigation Items */}
+          <ul className="space-y-1">
             {/* Collapse/Expand Toggle Button - Desktop only */}
-            <li className="hidden lg:block">
+            <li className="hidden lg:block mb-4">
               <div
                 className={cn(
-                  "flex items-center rounded px-3 py-2 text-sm font-medium cursor-pointer text-muted-foreground hover:text-card-foreground",
-                  collapsed ? "justify-center" : ""
+                  "flex items-center rounded py-2 text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground",
+                  collapsed ? "justify-center px-2" : "px-3"
                 )}
                 onClick={() => {
                   if (onToggle) onToggle();
@@ -204,15 +196,15 @@ const SidebarNav = ({ playlists: providedPlaylists = [], onNavItemClick, useProv
               </div>
             </li>
             
-            {navItems.map((item) => (
+            {navItems.map((item, index) => (
               <li key={item.href}>
                 <div
                   className={cn(
-                    "flex items-center rounded px-3 py-2 text-sm font-medium cursor-pointer",
-                    collapsed ? "justify-center" : "",
+                    "flex items-center rounded-lg py-3 text-sm font-medium cursor-pointer transition-colors",
+                    collapsed ? "justify-center px-2" : "px-3",
                     location === item.href
-                      ? "text-card-foreground bg-primary/10"
-                      : "text-muted-foreground hover:text-card-foreground"
+                      ? "text-primary bg-primary/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
                   onClick={() => {
                     if (onNavItemClick) onNavItemClick();
@@ -220,8 +212,14 @@ const SidebarNav = ({ playlists: providedPlaylists = [], onNavItemClick, useProv
                   }}
                   title={collapsed ? item.label : undefined}
                 >
-                  <span className={collapsed ? "" : "mr-2"}>{item.icon}</span>
-                  {!collapsed && item.label}
+                  <span className={collapsed ? "" : "mr-3"}>
+                    {item.icon}
+                  </span>
+                  {!collapsed && (
+                    <div className="flex items-center">
+                      <span>{item.label}</span>
+                    </div>
+                  )}
                 </div>
               </li>
             ))}
@@ -264,8 +262,21 @@ const SidebarNav = ({ playlists: providedPlaylists = [], onNavItemClick, useProv
                     </div>
                   </li>
                 )) : (
-                  <li className="text-muted-foreground text-sm py-2 px-3">
-                    No playlists yet. <span className="text-primary hover:underline cursor-pointer" onClick={() => navigate('/homepage')}>Create one?</span>
+                  <li className={cn(
+                    "text-muted-foreground text-sm py-2",
+                    collapsed ? "px-2 text-center" : "px-3"
+                  )}>
+                    {collapsed ? (
+                      <div className="flex flex-col items-center space-y-1">
+                        <span className="text-xs">No</span>
+                        <span className="text-xs">playlists</span>
+                        <span className="text-xs">yet</span>
+                      </div>
+                    ) : (
+                      <>
+                        No playlists yet.
+                      </>
+                    )}
                   </li>
                 )}
               </ul>
@@ -316,23 +327,136 @@ const SidebarNav = ({ playlists: providedPlaylists = [], onNavItemClick, useProv
         </nav>
       </div>
       
-      {/* User profile - Fixed at bottom */}
-      {user && (
-        <div className="absolute bottom-0 left-0 right-0 pt-2 pb-2 border-t border-border bg-card">
-          <div className="flex items-center px-3 py-2">
-            <Avatar className="h-9 w-9 mr-3">
-              <AvatarImage src={user.profile?.imageUrl} alt={user.profile?.displayName || user.username} />
-              <AvatarFallback>{(user.profile?.displayName || user.username || "User").charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium text-card-foreground truncate">
-                {user.profile?.displayName || user.username}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">Connected to Spotify</p>
-            </div>
+      {/* Utility Links and User Profile - Fixed at bottom - Midjourney style */}
+      <div className="absolute bottom-0 left-0 right-0 border-t border-border bg-background">
+        {/* Utility Links */}
+        <div className="px-4 py-3 space-y-1">
+          <div 
+            className={cn(
+              "flex items-center py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg cursor-pointer transition-colors",
+              collapsed ? "justify-center px-2" : "px-3"
+            )}
+            onClick={() => navigate('/help')}
+            title={collapsed ? "Help" : "Help"}
+          >
+            <HelpCircle className="h-4 w-4" />
+            {!collapsed && <span className="ml-3">Help</span>}
           </div>
+          
+          <div 
+            className={cn(
+              "flex items-center py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg cursor-pointer transition-colors",
+              collapsed ? "justify-center px-2" : "px-3"
+            )}
+            onClick={() => navigate('/updates')}
+            title={collapsed ? "Updates" : "Updates"}
+          >
+            <Bell className="h-4 w-4" />
+            {!collapsed && <span className="ml-3">Updates</span>}
+          </div>
+          
+          <div 
+            className={cn(
+              "flex items-center py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors cursor-pointer",
+              collapsed ? "justify-center px-2" : "px-3"
+            )}
+            onClick={() => {
+              const newTheme = theme === 'dark' ? 'light' : 'dark';
+              setTheme(newTheme);
+              
+              // Remove old theme class and add new theme class
+              document.documentElement.classList.remove(theme);
+              document.documentElement.classList.add(newTheme);
+              
+              // Store the theme preference
+              localStorage.setItem('theme', newTheme);
+            }}
+            title={collapsed ? "Theme" : "Theme"}
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+            {!collapsed && <span className="ml-3">Theme</span>}
+          </div>
+          
+          {/* Logout Button - Only for logged-in users */}
+          {user && (
+            <div 
+              className={cn(
+                "flex items-center py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg cursor-pointer transition-colors",
+                collapsed ? "justify-center px-2" : "px-3"
+              )}
+              onClick={() => {
+                if (logout) {
+                  logout();
+                }
+              }}
+              title={collapsed ? "Logout" : "Logout"}
+            >
+              <LogOut className="h-4 w-4" />
+              {!collapsed && <span className="ml-3">Logout</span>}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* User Profile */}
+        {user ? (
+          <div 
+            className={cn(
+              "flex items-center py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors",
+              collapsed ? "justify-center" : ""
+            )}
+            onClick={() => navigate('/settings')}
+            title={collapsed ? "Settings" : "Open Settings"}
+          >
+            <div className={cn(
+              "relative flex shrink-0 overflow-hidden rounded-full h-8 w-8 bg-muted",
+              collapsed ? "" : "mr-3"
+            )}>
+              <div className="flex h-full w-full items-center justify-center rounded-full text-muted-foreground font-medium text-sm">
+                {user.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'U'}
+              </div>
+            </div>
+            {!collapsed && (
+              <div className="flex-1 overflow-hidden">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {user.name || 'User'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {credits} credit{credits !== 1 ? 's' : ''}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div 
+            className={cn(
+              "flex items-center py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors border-t border-border",
+              collapsed ? "justify-center" : ""
+            )}
+            onClick={() => navigate('/login')}
+            title={collapsed ? "Login" : "Sign In"}
+          >
+            <div className={cn(
+              "relative flex shrink-0 overflow-hidden rounded-full h-8 w-8 bg-muted",
+              collapsed ? "" : "mr-3"
+            )}>
+              <div className="flex h-full w-full items-center justify-center rounded-full text-muted-foreground">
+                <LogIn className="h-4 w-4" />
+              </div>
+            </div>
+            {!collapsed && (
+              <div className="flex-1 overflow-hidden">
+                <p className="text-sm font-medium text-foreground truncate">
+                  Sign In
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </aside>
   );
 };

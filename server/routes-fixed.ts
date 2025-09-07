@@ -23,6 +23,8 @@ import fetch from "node-fetch";
 import sharp from "sharp";
 import * as fs from "fs";
 import * as db from "./db";
+import { tracks, trackPlatformIds } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 // MCP router has been removed as it's no longer needed
 
@@ -926,6 +928,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user = await storage.createUser({
           username: profile.display_name || profile.id,
           password: secureRandomPassword, // Add a secure random password to satisfy DB constraint
+          name: profile.display_name || null, // Save the Spotify display name as the user's name
           spotifyId: profile.id,
           spotifyAccessToken: tokenData.access_token,
           spotifyRefreshToken: tokenData.refresh_token,
@@ -1950,6 +1953,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get playlist details error:", error);
       res.status(500).json({ message: "Failed to get playlist details" });
+    }
+  });
+
+  // Generate AI cover image for existing playlist
+  app.post("/api/playlist/:id/generate-cover", async (req: Request, res: Response) => {
+    try {
+      const playlistId = parseInt(req.params.id);
+      const { customPrompt } = req.body;
+      const userId = req.query.userId as string;
+
+      if (!userId) {
+        return res.status(400).json({ message: "userId is required" });
+      }
+
+      // Verify playlist ownership
+      const playlist = await storage.getPlaylist(playlistId);
+      if (!playlist || playlist.userId !== parseInt(userId)) {
+        return res.status(403).json({ message: "Access denied: You don't own this playlist" });
+      }
+
+      // Get playlist tracks for context
+      const tracks = await storage.getSongsByPlaylistId(playlistId);
+      
+      try {
+        let finalImagePrompt;
+
+        if (customPrompt) {
+          // User provided a custom prompt
+          console.log("Using user-provided custom prompt for playlist cover:", customPrompt);
+          finalImagePrompt = customPrompt;
+        } else {
+          // Generate automatic description based on playlist info
+          console.log("Generating automatic cover description for existing playlist");
+          finalImagePrompt = await openai.generateCoverImageDescription(
+            playlist.title, 
+            playlist.description || '', 
+            tracks
+          );
+        }
+        
+        console.log("Final image generation prompt for playlist:", finalImagePrompt);
+        
+        // Generate image with DALL-E
+        const tempCoverImageUrl = await openai.generateCoverImage(finalImagePrompt);
+        
+        // Store the cover image in Supabase storage with full optimization
+        const { storeAiGeneratedCoverWithOptimization } = await import('./services/supabaseStorage');
+        const optimizedImages = await storeAiGeneratedCoverWithOptimization(tempCoverImageUrl, playlistId);
+        const permanentCoverImageUrl = optimizedImages.original;
+        console.log("Stored optimized cover images in Supabase:", permanentCoverImageUrl);
+        
+        // Update the playlist in the database
+        await storage.updatePlaylist(playlistId, { coverImageUrl: permanentCoverImageUrl });
+
+        // If playlist has been exported to Spotify, try to upload the cover image to Spotify
+        let spotifySync = false;
+        if (playlist.spotifyId) {
+          try {
+            // Get user's Spotify access token
+            const user = await storage.getUser(parseInt(userId));
+            if (user?.spotifyAccessToken) {
+              // Convert image URL to base64 for Spotify upload
+              const { imageUrlToBase64 } = await import('./services/spotify');
+              const base64Image = await imageUrlToBase64(permanentCoverImageUrl);
+              
+              // Upload cover image to Spotify
+              const { uploadPlaylistCoverImage } = await import('./services/spotify');
+              await uploadPlaylistCoverImage(user.spotifyAccessToken, playlist.spotifyId, base64Image);
+              
+              spotifySync = true;
+              console.log(`✅ Successfully uploaded AI-generated cover image to Spotify for playlist ${playlistId}`);
+            }
+          } catch (error) {
+            console.error(`❌ Error uploading AI-generated cover image to Spotify for playlist ${playlistId}:`, error);
+            // Don't fail the request if Spotify upload fails
+          }
+        }
+        
+        // Return the Supabase-stored image URL and the prompt used
+        return res.json({ 
+          success: true,
+          coverImageUrl: permanentCoverImageUrl,
+          promptUsed: finalImagePrompt,
+          spotifySync
+        });
+      } catch (genError) {
+        console.error("Error in AI cover image generation:", genError);
+        
+        // If something goes wrong in the image generation process, return error
+        return res.status(500).json({ 
+          message: "Failed to generate cover image",
+          error: genError instanceof Error ? genError.message : "Unknown error"
+        });
+      }
+    } catch (error) {
+      console.error("Generate AI cover image error:", error);
+      res.status(500).json({ message: "Failed to generate AI cover image" });
     }
   });
 
@@ -3112,9 +3212,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startTime = Date.now();
       console.log(`Direct Assistant API - Starting request at ${new Date().toISOString()}`);
       
-      // Create a thread with the user's prompt, enhanced with article context if available
-      let enhancedPrompt = prompt;
+      // Use standard completion API instead of Assistant API
+      console.log(`Using standard OpenAI completion API for playlist generation`);
       
+      // Create a system prompt for playlist generation
+      const systemPrompt = `You are a music recommendation assistant that creates personalized playlists.
+For the given prompt, recommend 24 specific songs that match the request.
+Focus on creating a cohesive playlist with good flow and pacing.
+Ensure song variety across artists (don't recommend more than 2 songs from the same artist).
+Recommend real songs that exist.
+
+Your response should be in JSON format:
+{
+  "songs": [
+    {"title": "Song Title", "artist": "Artist Name", "genre": "Genre"},
+    ...
+  ],
+  "genres": ["genre1", "genre2", ...],
+  "title": "Playlist Title",
+  "description": "Engaging, descriptive paragraph about the playlist.",
+  "coverDescription": "Visual description for generating a playlist cover image."
+}`;
+
+      // Enhance the prompt with article context if available
+      let enhancedPrompt = prompt;
       if (articleData && articleData.title && articleData.link) {
         enhancedPrompt = `I want to create a playlist inspired by this news article:
 
@@ -3128,89 +3249,25 @@ Please create a playlist that captures the themes, mood, and energy of this news
         console.log("Enhanced prompt for article-based playlist:", enhancedPrompt.substring(0, 200) + "...");
       }
       
-      const thread = await openai.beta.threads.create({
+      // Call the OpenAI completion API
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
         messages: [
-          {
-            role: "user",
-            content: enhancedPrompt
-          }
-        ]
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: enhancedPrompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 1.0,
+        max_tokens: 2048
       });
       
-      console.log(`Created thread with ID: ${thread.id}`);
-      
-      // Run the assistant on the thread
-      // NOTE: This is currently configured to use the development assistant
-      const assistantId = process.env.OPENAI_ASSISTANT_ID;
-      
-      if (!assistantId) {
-        throw new Error("Missing OPENAI_ASSISTANT_ID environment variable");
+      // Parse the response
+      const responseText = response.choices[0].message.content;
+      if (!responseText) {
+        throw new Error('OpenAI returned an empty response');
       }
       
-      console.log(`Running assistant ${assistantId} on thread ${thread.id}`);
-      
-      const run = await openai.beta.threads.runs.create(
-        thread.id,
-        { assistant_id: assistantId }
-      );
-      
-      console.log(`Created run with ID: ${run.id}`);
-      
-      // Poll for completion with timeout
-      let complete = false;
-      let runResult = run;
-      let pollCount = 0;
-      const maxPolls = 100; // Safety limit
-      const pollInterval = 500; // ms
-      
-      while (!complete && pollCount < maxPolls) {
-        // Get the latest run status
-        runResult = await openai.beta.threads.runs.retrieve(
-          thread.id,
-          run.id
-        );
-        
-        pollCount++;
-        
-        // Check if the run is complete
-        if (runResult.status === 'completed') {
-          complete = true;
-          console.log(`Run completed after ${pollCount} polls`);
-        } else if (runResult.status === 'failed' || runResult.status === 'cancelled' || runResult.status === 'expired') {
-          throw new Error(`Run failed with status: ${runResult.status}`);
-        } else {
-          // Wait before polling again
-          await new Promise(resolve => setTimeout(resolve, pollInterval));
-        }
-      }
-      
-      if (!complete) {
-        throw new Error(`Run timed out after ${pollCount} polls`);
-      }
-      
-      // Retrieve the assistant's response
-      const messages = await openai.beta.threads.messages.list(
-        thread.id
-      );
-      
-      const assistantMessages = messages.data.filter(msg => msg.role === 'assistant');
-      
-      if (assistantMessages.length === 0) {
-        throw new Error("No assistant messages found in the thread");
-      }
-      
-      // Get the latest message from the assistant
-      const latestMessage = assistantMessages[0];
-      const responseContent = latestMessage.content[0];
-      
-      // Check if we got a text response
-      if (responseContent.type !== 'text') {
-        throw new Error(`Unexpected response type: ${responseContent.type}`);
-      }
-      
-      // Parse the response as JSON
-      const responseText = responseContent.text.value;
-      console.log(`Received response: ${responseText.substring(0, 200)}...`);
+      console.log(`OpenAI response: ${responseText.substring(0, 200)}...`);
       
       // Log timing information
       const endTime = Date.now();
@@ -3218,52 +3275,38 @@ Please create a playlist that captures the themes, mood, and energy of this news
       console.log(`Direct Assistant API - Request completed in ${duration.toFixed(2)} seconds`);
       console.timeEnd(`direct-assistant-${sessionId}`);
       
-      // Attempt to parse JSON from the response
+      // Parse the JSON response
+      let jsonResponse;
       try {
-        // First, check if the response is wrapped in a markdown code block
-        let cleanedResponse = responseText;
-        if (responseText.startsWith('```json') || responseText.startsWith('```')) {
-          // Extract content between markdown code block indicators
-          cleanedResponse = responseText
-            .replace(/^```json\s*\n/, '') // Remove opening ```json
-            .replace(/^```\s*\n/, '')     // Or just ```
-            .replace(/\n```\s*$/, '');    // Remove closing ```
-          
-          console.log(`Detected markdown code block, cleaned response: ${cleanedResponse.substring(0, 100)}...`);
-        }
-        
-        // Now try to parse the cleaned response
-        const jsonResponse = JSON.parse(cleanedResponse);
+        jsonResponse = JSON.parse(responseText);
         console.log("Successfully parsed JSON response");
-        
-        // Return the successful response
-        return res.status(200).json({
-          success: true,
-          response: jsonResponse,
-          timing: {
-            duration: duration,
-            startTime: new Date(startTime).toISOString(),
-            endTime: new Date(endTime).toISOString(),
-            pollCount: pollCount
-          }
-        });
       } catch (jsonError) {
-        console.error("Failed to parse JSON from assistant response:", jsonError);
+        console.error("Failed to parse JSON from OpenAI response:", jsonError);
         console.log("Raw response:", responseText);
         
         // Return the raw text if JSON parsing fails
         return res.status(200).json({
           success: true,
           rawResponse: responseText,
-          warning: "Failed to parse JSON from assistant response",
+          warning: "Failed to parse JSON from OpenAI response",
           timing: {
             duration: duration,
             startTime: new Date(startTime).toISOString(),
-            endTime: new Date(endTime).toISOString(),
-            pollCount: pollCount
+            endTime: new Date(endTime).toISOString()
           }
         });
       }
+      
+      // Return the successful response
+      return res.status(200).json({
+        success: true,
+        response: jsonResponse,
+        timing: {
+          duration: duration,
+          startTime: new Date(startTime).toISOString(),
+          endTime: new Date(endTime).toISOString()
+        }
+      });
     } catch (error) {
       console.error("Error in direct assistant API:", error);
       
@@ -3286,7 +3329,7 @@ Please create a playlist that captures the themes, mood, and energy of this news
       return res.status(500).json({
         success: false,
         message: errorMessage,
-        error: "ASSISTANT_API_ERROR"
+        error: "OPENAI_API_ERROR"
       });
     }
   });
@@ -3618,6 +3661,285 @@ Please create a playlist that captures the themes, mood, and energy of this news
     } catch (error) {
       console.error("Error reordering tracks:", error);
       res.status(500).json({ message: "Failed to reorder tracks" });
+    }
+  });
+
+  // Update playlist visibility (public/private)
+  app.post("/api/playlist/:id/update-visibility", async (req: Request, res: Response) => {
+    console.log("Update visibility endpoint called with:", req.params, req.body);
+    try {
+      const playlistId = parseInt(req.params.id);
+      const { isPublic, userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ message: "userId is required" });
+      }
+
+      if (typeof isPublic !== 'boolean') {
+        return res.status(400).json({ message: "isPublic must be a boolean value" });
+      }
+
+      // Verify playlist ownership
+      const playlist = await storage.getPlaylist(playlistId);
+      if (!playlist || playlist.userId !== parseInt(userId)) {
+        return res.status(403).json({ message: "Access denied: You don't own this playlist" });
+      }
+
+      // Update the playlist visibility
+      const updatedPlaylist = await storage.updatePlaylist(playlistId, { isPublic });
+
+      res.json({ 
+        success: true,
+        isPublic: updatedPlaylist.isPublic,
+        message: `Playlist is now ${isPublic ? 'public' : 'private'}`
+      });
+
+    } catch (error) {
+      console.error("Update playlist visibility error:", error);
+      res.status(500).json({ message: "Failed to update playlist visibility" });
+    }
+  });
+
+  // Helper function to get Spotify access token using client credentials
+  async function getSpotifyClientToken(): Promise<string> {
+    const clientId = process.env.SPOTIFY_CLIENT_ID;
+    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+    
+    if (!clientId || !clientSecret) {
+      throw new Error('Spotify API credentials not configured');
+    }
+    
+    const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${authString}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'grant_type=client_credentials'
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get Spotify client token: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    return data.access_token;
+  }
+
+  // Spotify Playlist Import Endpoint
+  app.post("/api/spotify/import-playlist", async (req: Request, res: Response) => {
+    try {
+      const { userId, playlistUrl } = req.body;
+      
+      console.log(`Spotify import request - userId: ${userId}, playlistUrl: ${playlistUrl}`);
+      
+      if (!userId || !playlistUrl) {
+        return res.status(400).json({ error: "userId and playlistUrl are required" });
+      }
+
+      // Get user and validate Spotify access
+      const user = await storage.getUser(parseInt(userId));
+      if (!user) {
+        console.log(`User not found: ${userId}`);
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      console.log(`User found: ${user.username}, hasSpotifyToken: ${!!user.spotifyAccessToken}`);
+
+      // Import the playlist using service account (transparent to user)
+      const { SpotifyPlaylistImporter } = await import('./services/spotifyPlaylistImporter');
+      const result = await SpotifyPlaylistImporter.importPlaylistWithServiceAccount(
+        parseInt(userId),
+        playlistUrl
+      );
+
+      res.json({
+        success: true,
+        playlistId: result.playlistId,
+        trackCount: result.trackCount,
+        message: `Successfully imported playlist with ${result.trackCount} tracks`
+      });
+
+    } catch (error) {
+      console.error("Spotify playlist import error:", error);
+      res.status(500).json({ 
+        error: error.message || "Failed to import playlist" 
+      });
+    }
+  });
+
+  // Add external Spotify song to playlist endpoint
+  app.post("/api/playlist/:id/add-external-song", async (req: Request, res: Response) => {
+    try {
+      const playlistId = parseInt(req.params.id);
+      const { spotifyUrl, userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ message: "userId is required" });
+      }
+      if (!spotifyUrl) {
+        return res.status(400).json({ message: "spotifyUrl is required" });
+      }
+
+      const spotifyTrackRegex = /^https:\/\/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/;
+      const match = spotifyUrl.match(spotifyTrackRegex);
+      if (!match) {
+        return res.status(400).json({ message: "Invalid Spotify track URL format" });
+      }
+      const spotifyTrackId = match[1];
+
+      const playlist = await storage.getPlaylist(playlistId);
+      if (!playlist || playlist.userId !== parseInt(userId)) {
+        return res.status(403).json({ message: "Access denied: You don't own this playlist" });
+      }
+
+      // Try to get real track data from Spotify API
+      let spotifyTrack;
+      
+      try {
+        console.log('🎵 Fetching track data from Spotify Web API...');
+        
+        // Use client credentials flow to get access token
+        const clientId = process.env.SPOTIFY_CLIENT_ID;
+        const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+        
+        if (!clientId || !clientSecret) {
+          throw new Error('Spotify client credentials not configured. Please set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET environment variables.');
+        }
+
+        // Get client credentials token
+        console.log('🔑 Getting Spotify access token...');
+        const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
+          },
+          body: 'grant_type=client_credentials'
+        });
+        
+        if (!tokenResponse.ok) {
+          const errorText = await tokenResponse.text();
+          throw new Error(`Failed to get Spotify access token: ${tokenResponse.status} ${errorText}`);
+        }
+        
+        const tokenData = await tokenResponse.json();
+        console.log('✅ Got Spotify access token');
+        
+        // Fetch track data
+        console.log(`🎵 Fetching track ${spotifyTrackId} from Spotify API...`);
+        const spotifyResponse = await fetch(`https://api.spotify.com/v1/tracks/${spotifyTrackId}`, {
+          headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+        });
+        
+        if (!spotifyResponse.ok) {
+          const errorText = await spotifyResponse.text();
+          throw new Error(`Spotify API failed: ${spotifyResponse.status} ${errorText}`);
+        }
+        
+        spotifyTrack = await spotifyResponse.json();
+        console.log('✅ Successfully fetched track from Spotify:', spotifyTrack.name, 'by', spotifyTrack.artists[0]?.name);
+        
+      } catch (error) {
+        console.warn('⚠️ Spotify Web API failed:', error.message);
+        console.log('💡 To get full track information, please set up Spotify client credentials:');
+        console.log('   1. Go to https://developer.spotify.com/dashboard');
+        console.log('   2. Create a new app');
+        console.log('   3. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET environment variables');
+        console.log('   4. Restart the server');
+        
+        // Fallback: create basic track info from URL
+        spotifyTrack = {
+          name: `Track ${spotifyTrackId}`,
+          artists: [{ name: 'Unknown Artist' }],
+          album: { name: 'Unknown Album', images: [{ url: null }], release_date: null },
+          external_urls: { spotify: spotifyUrl },
+          duration_ms: 180000, // 3 minutes default
+          popularity: 50
+        };
+      }
+
+      const { db } = await import('./db');
+      
+      let trackId: number;
+      
+      // Check if track already exists by looking in trackPlatformIds table
+      const existingPlatformTrack = await db.select()
+        .from(trackPlatformIds)
+        .where(eq(trackPlatformIds.platformId, spotifyTrackId))
+        .limit(1);
+
+      if (existingPlatformTrack.length > 0) {
+        trackId = existingPlatformTrack[0].trackId;
+      } else {
+        const newTrack = await db.insert(tracks).values({
+          title: spotifyTrack.name,
+          duration: Math.floor(spotifyTrack.duration_ms / 1000), // Convert to seconds
+          popularity: spotifyTrack.popularity || 0
+        }).returning();
+        trackId = newTrack[0].id;
+
+        await db.insert(trackPlatformIds).values({
+          trackId: trackId,
+          platform: 'spotify',
+          platformId: spotifyTrackId,
+          platformUrl: spotifyTrack.external_urls?.spotify || null
+        });
+
+        try {
+          const odesliResponse = await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(spotifyUrl)}`);
+          if (odesliResponse.ok) {
+            const odesliData = await odesliResponse.json();
+            const platforms = ['youtube', 'appleMusic', 'amazonMusic', 'tidal', 'deezer'];
+            for (const platform of platforms) {
+              const platformKey = platform === 'appleMusic' ? 'apple_music' : platform === 'amazonMusic' ? 'amazon_music' : platform;
+              if (odesliData.linksByPlatform?.[platform]) {
+                const platformData = odesliData.linksByPlatform[platform];
+                const platformId = platformData.entityUniqueId.split('::').pop() || '';
+                if (platformId) {
+                  await db.insert(trackPlatformIds).values({
+                    trackId: trackId,
+                    platform: platformKey,
+                    platformId: platformId,
+                    platformUrl: platformData.url
+                  });
+                }
+              }
+            }
+          }
+        } catch (odesliError) {
+          console.warn(`Failed to resolve platform links with Odesli for track ${trackId}:`, odesliError);
+        }
+      }
+
+      // Add track to playlist
+      const playlistTracks = await storage.getSmartLinkTracks(`playlist-${playlistId}`);
+      const position = playlistTracks.length;
+      const success = await storage.addTrackToPlaylist(playlistId, trackId, position);
+
+      if (!success) {
+        return res.status(500).json({ message: "Failed to add track to playlist" });
+      }
+
+      res.json({ 
+        success: true, 
+        track: {
+          id: trackId,
+          title: spotifyTrack.name,
+          artist: spotifyTrack.artists[0]?.name || 'External Artist',
+          album: spotifyTrack.album?.name || 'External Album',
+          spotifyId: spotifyTrackId,
+          duration: spotifyTrack.duration_ms,
+          albumCoverImage: spotifyTrack.album?.images?.[0]?.url || null
+        }, 
+        message: `Successfully added "${spotifyTrack.name}" to playlist` 
+      });
+    } catch (error) {
+      console.error("Error adding external song to playlist:", error);
+      res.status(500).json({ message: "Failed to add external song to playlist" });
     }
   });
 

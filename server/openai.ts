@@ -502,41 +502,60 @@ function generatePlaylistCoverPrompt(
   audience: string, 
   userPrompt?: string
 ): string {
-  let basePrompt = `Create an original playlist cover design for "${title}".
-
-Genre: ${genre} | Mood: ${mood} | Audience: ${audience}
-
-Design requirements:
-- Minimalist, clean design with subtle color palette
-- Flat design or simple geometric shapes
-- Minimal use of bright colors or heavy saturation
-- No drop shadows, 3D effects, or excessive visual elements
-- Clean, modern typography if text is included
-- Square format (1:1 ratio)
-- Focus on mood and genre through simple visual elements
-
-CRITICAL - ABSOLUTELY FORBIDDEN:
-- NO Spotify logos, icons, or branding of any kind
-- NO streaming service logos (Apple Music, YouTube Music, etc.)
-- NO music platform interfaces or UI elements
-- NO company logos, brand names, or corporate identifiers
-- NO Spotify green (#1DB954) or platform-specific colors
-- NO copyrighted symbols, trademarked elements, or brand references
-- NO social media platform logos or icons
-
-Visual style:
-- Use muted, sophisticated color palettes
-- Avoid bright neon colors or excessive gradients
-- Keep backgrounds simple and uncluttered
-- If using shadows, make them very subtle and minimal
-- Focus on typography, simple shapes, or abstract patterns
-- Create a refined, artistic look without platform branding
-
-Create a completely original, brand-neutral album cover that captures the playlist's essence through simple, elegant design.`;
-
+  // Rotating focus prompts for variety (abstract and inclusive)
+  const focusPrompts = [
+    "abstract geometric shapes with neon lighting effects",
+    "colorful abstract forms in collage style with paint splashes", 
+    "surreal cosmic landscape with abstract geometric patterns",
+    "dreamy abstract composition with glowing elements"
+  ];
+  
+  // Randomize color palettes
+  const colorPalettes = [
+    "electric blue and hot pink",
+    "vivid orange and teal", 
+    "galactic purple and neon green",
+    "neon yellow and deep purple",
+    "bright cyan and magenta",
+    "lime green and electric blue"
+  ];
+  
+  // Vary typography styles
+  const typographyStyles = [
+    "graffiti-inspired lettering",
+    "clean futuristic sans serif",
+    "hand-painted brush script",
+    "bold geometric typography",
+    "neon glow lettering",
+    "artistic calligraphy"
+  ];
+  
+  // Randomly select elements for variety
+  const randomFocus = focusPrompts[Math.floor(Math.random() * focusPrompts.length)];
+  const randomColors = colorPalettes[Math.floor(Math.random() * colorPalettes.length)];
+  const randomTypography = typographyStyles[Math.floor(Math.random() * typographyStyles.length)];
+  
+  // Build the dynamic prompt (inclusive and abstract)
+  let basePrompt = `A vibrant, highly stylized pop-art neon illustration, with surreal abstract elements and cosmic vibes. Dynamic and colorful, inspired by modern digital art and contemporary design. Include the playlist title and description in bold, artistic typography integrated into the design. Abstract and geometric design only, no human figures or faces.`;
+  
+  // Add playlist context
+  if (title && title !== 'Untitled Playlist') {
+    basePrompt += ` Playlist: "${title}"`;
+  }
+  
+  // Add description context if available
+  if (mood && mood !== 'energetic') {
+    basePrompt += ` Description: "${mood} ${genre} vibes"`;
+  } else if (genre && genre !== 'pop') {
+    basePrompt += ` Description: "${genre} music collection"`;
+  }
+  
+  // Add randomized elements
+  basePrompt += ` Focus: ${randomFocus}. Color palette: ${randomColors}. Typography: ${randomTypography}.`;
+  
   // Add user guidance if provided
   if (userPrompt) {
-    basePrompt += `\n\nUser guidance: ${userPrompt}`;
+    basePrompt += ` Additional guidance: ${userPrompt}`;
   }
 
   return basePrompt;
@@ -595,7 +614,7 @@ export async function saveCoverImageForPlaylist(imageUrl: string, playlistId: nu
   } catch (error) {
     console.error('Error saving cover image:', error);
     // Return a fallback image URL or throw error
-    throw new Error(`Failed to save cover image: ${error.message}`);
+    throw new Error(`Failed to save cover image: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -604,32 +623,26 @@ export async function saveCoverImageForPlaylist(imageUrl: string, playlistId: nu
  */
 export async function generateCoverImage(description: string, playlistId?: number): Promise<string> {
   try {
-    console.log("Generating cover image with DALL-E 3, prompt:", description);
+    console.log("Generating cover image with gpt-image-1, prompt:", description);
     
-    const response = await openai.images.generate({
-      model: "dall-e-3",
+    // Use the openaiImageService for gpt-image-1 generation
+    const { generateOpenAIImage } = await import('./services/openaiImageService');
+    
+    const imageUrl = await generateOpenAIImage({
       prompt: description,
-      n: 1,
-      size: "1024x1024",
-      quality: "hd",
-      style: "natural"
-    });
+      model: 'gpt-image-1',
+      size: '1024x1024',
+      quality: 'high'
+    }, playlistId);
 
-    const tempImageUrl = response.data[0].url;
-    if (!tempImageUrl) {
-      throw new Error("No image URL returned from OpenAI");
+    if (!imageUrl) {
+      throw new Error("No image URL returned from gpt-image-1");
     }
 
-    console.log("Cover image generated successfully, now storing in Supabase...");
-    
-    // Store the image in Supabase with full optimization
-    const { storeAiGeneratedCoverWithOptimization } = await import('./services/supabaseStorage');
-    const optimizedImages = await storeAiGeneratedCoverWithOptimization(tempImageUrl, playlistId);
-    
-    console.log("Cover image stored in Supabase:", optimizedImages.original);
-    return optimizedImages.original;
+    console.log("Cover image generated successfully with gpt-image-1:", imageUrl);
+    return imageUrl;
   } catch (error) {
-    console.error("Error generating cover image:", error);
+    console.error("Error generating cover image with gpt-image-1:", error);
     throw error;
   }
 }
@@ -862,5 +875,158 @@ Create a short, catchy title (3-4 words with UPPERCASE first word) and engaging 
       title: `Playlist inspired by ${prompt.substring(0, 20)}...`,
       description: fallbackDescription + signature
     };
+  }
+}
+
+/**
+ * Generate a compelling description for an album based on its metadata
+ */
+export async function generateAlbumDescription(album: {
+  title: string;
+  artist: string;
+  genre: string;
+  releaseDate: string;
+  chartPosition: number;
+  isExplicit?: boolean;
+}): Promise<string> {
+  try {
+    const prompt = `Write a compelling 2-3 sentence description for the album "${album.title}" by ${album.artist}. 
+
+Album Details:
+- Genre: ${album.genre}
+- Release Date: ${album.releaseDate}
+- Chart Position: #${album.chartPosition} in US
+- ${album.isExplicit ? 'Content: Explicit' : 'Content: Clean'}
+
+Write a description that:
+1. Captures the album's musical style and energy
+2. Explains why it's currently trending
+3. Appeals to music fans and playlist creators
+4. Is engaging and informative
+5. Mentions the artist's style or the album's impact
+
+Keep it concise, engaging, and under 150 characters. Focus on what makes this album special and why it's popular right now.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a music expert and playlist curator who writes compelling, concise album descriptions that help people understand why an album is trending and what makes it special."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      max_tokens: 200,
+      temperature: 0.7,
+    });
+
+    const description = response.choices[0]?.message?.content?.trim();
+    
+    if (!description) {
+      throw new Error('No description generated');
+    }
+
+    return description;
+
+  } catch (error) {
+    console.error('Error generating album description:', error);
+    
+    // Fallback description
+    return `${album.title} by ${album.artist} is currently trending at #${album.chartPosition} on Apple Music. This ${album.genre.toLowerCase()} album showcases the artist's signature style and has captured listeners' attention with its compelling sound.`;
+  }
+}
+
+/**
+ * Generate a compelling description for a smart link based on playlist tracks and vibe
+ */
+export async function generateSmartLinkDescription({
+  playlistTitle,
+  playlistDescription,
+  tracks,
+  promotedTrackId,
+  smartLinkTitle
+}: {
+  playlistTitle: string;
+  playlistDescription?: string;
+  tracks: any[];
+  promotedTrackId?: number;
+  smartLinkTitle?: string;
+}): Promise<string> {
+  try {
+    // Find the promoted track if specified
+    const promotedTrack = promotedTrackId ? tracks.find(t => t.id === promotedTrackId) : tracks[0];
+    
+    // Get track info for context
+    const trackInfo = tracks.slice(0, 8).map(track => 
+      `"${track.title}" by ${track.artist}${track.album ? ` (from ${track.album})` : ''}`
+    ).join('\n');
+
+    const systemPrompt = `You are a modern music curator and social media expert who creates viral, engaging descriptions for playlist sharing links. Your descriptions should be:
+
+- 15-30 words maximum
+- Young, trendy, and marketing-savvy
+- Include relevant emojis (1-2 max)
+- Capture the vibe and energy of the music
+- Make people want to click and listen
+- Use contemporary slang and cultural references
+- Focus on the emotional impact and mood
+- Be shareable and social media friendly
+
+Examples of good descriptions:
+- "vibes for late night drives and deep thoughts 🌙✨"
+- "your new obsession starts here - trust us on this one 🔥"
+- "for when you need to feel everything at once 💔"
+- "the perfect soundtrack to your main character moment ✨"
+- "songs that hit different when you're in your feels 🎵"
+
+Make it feel authentic, not corporate. Think like a music influencer or playlist curator on social media.`;
+
+    const userPrompt = `Create a compelling description for this playlist sharing link:
+
+Playlist: "${playlistTitle}"
+${playlistDescription ? `Original Description: "${playlistDescription}"` : ''}
+${smartLinkTitle ? `Smart Link Title: "${smartLinkTitle}"` : ''}
+
+Featured Track: "${promotedTrack?.title}" by ${promotedTrack?.artist}
+${promotedTrack?.album ? `Album: ${promotedTrack.album}` : ''}
+
+Tracks in playlist:
+${trackInfo}
+${tracks.length > 8 ? `...and ${tracks.length - 8} more tracks` : ''}
+
+Generate a viral, engaging description that captures the essence and vibe of this playlist. Make it sound like something a music influencer would write.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt
+        },
+        {
+          role: "user",
+          content: userPrompt
+        }
+      ],
+      max_tokens: 100,
+      temperature: 0.8,
+    });
+
+    const description = response.choices[0]?.message?.content?.trim();
+    
+    if (!description) {
+      throw new Error('No description generated');
+    }
+
+    return description;
+
+  } catch (error) {
+    console.error('Error generating smart link description:', error);
+    
+    // Fallback description
+    return `Discover amazing music with ${tracks.length} carefully curated tracks 🎵✨`;
   }
 }

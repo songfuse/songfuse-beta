@@ -331,7 +331,7 @@ const Home = () => {
         initial="hidden"
         animate={howItWorksInView ? "visible" : "hidden"}
         variants={staggerContainer}
-        className="container mx-auto px-4 py-8 max-w-6xl"
+        className="container px-2 py-4 max-w-6xl"
       >
         <motion.div 
           className="text-center mb-10"

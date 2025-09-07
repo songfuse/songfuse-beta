@@ -18,13 +18,13 @@ const Albums = () => {
 
   return (
     <Layout playlists={playlists}>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="mb-8">
+      <div className="container px-2 py-4 max-w-6xl">
+        <div className="mb-4">
           <h1 className="font-bold mb-2 bg-gradient-to-r from-teal-400 to-[#1DB954] text-transparent bg-clip-text text-[40px]">
             Top 25 Albums
           </h1>
           <p className="text-foreground/70 text-lg">
-            Discover trending albums from Apple Music and create playlists inspired by them
+            Discover trending albums and create playlists inspired by them
           </p>
         </div>
         

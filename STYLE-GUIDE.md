@@ -112,10 +112,11 @@ SongFuse is an AI-powered music discovery platform with a modern, vibrant aesthe
 
 ### Font Family
 ```css
-font-family: 'Work Sans', sans-serif;
+font-family: 'DM Sans', sans-serif;
+font-family: 'JetBrains Mono', monospace; /* For code and monospace text */
 ```
 
-**Work Sans** is a modern, humanist sans-serif typeface that provides excellent readability across all devices while maintaining a contemporary, approachable personality.
+**DM Sans** is a modern, geometric sans-serif typeface that provides excellent readability across all devices while maintaining a clean, contemporary personality. **JetBrains Mono** is used for code and monospace text, offering excellent readability for programming and technical content.
 
 ### Font Weights
 - **Light**: 300 (`.font-light`)

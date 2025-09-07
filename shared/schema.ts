@@ -8,6 +8,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  name: text("name"), // User's full name
   spotifyId: text("spotify_id"),
   spotifyAccessToken: text("spotify_access_token"),
   spotifyRefreshToken: text("spotify_refresh_token"),
@@ -19,6 +20,7 @@ export const users = pgTable("users", {
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  name: true,
   spotifyId: true,
   spotifyAccessToken: true,
   spotifyRefreshToken: true,
@@ -506,6 +508,7 @@ export type GeneratedPlaylist = {
   coverImageUrl: string;
   tracks: SpotifyTrack[];
   originalPrompt?: string; // Store the original prompt that generated this playlist
+  isPublic?: boolean; // Whether the playlist is public or private
 };
 
 // Smart Links table for shareable playlist pages with promoted songs

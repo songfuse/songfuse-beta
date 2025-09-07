@@ -5,7 +5,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useLocation } from "wouter";
 import ThemeToggle from "@/components/ThemeToggle";
 import useThemedLogo from "@/hooks/useThemedLogo";
-import { CreditDisplay } from "@/components/ui/CreditDisplay";
 
 const Header = () => {
   const [location, setLocation] = useLocation();
@@ -43,27 +42,11 @@ const Header = () => {
       </div>
       
       <div className="flex items-center">
-        {user && <CreditDisplay userId={user.id} />}
-        
         <ThemeToggle />
         
         <div className="ml-2 sm:ml-4 flex items-center space-x-2">
           {user ? (
             <>
-              <div className="flex items-center space-x-2">
-                {user.picture ? (
-                  <img
-                    src={user.picture}
-                    alt={user.name}
-                    className="w-8 h-8 rounded-full"
-                  />
-                ) : (
-                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-gray-600" />
-                  </div>
-                )}
-                <span className="text-sm font-medium">{user.name}</span>
-              </div>
               <Button 
                 variant="ghost" 
                 size="sm"

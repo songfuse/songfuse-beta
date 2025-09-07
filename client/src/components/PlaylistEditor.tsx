@@ -72,7 +72,7 @@ const PlaylistEditor = ({
   
   // Use tracksInternal as tracks throughout the component
   const tracks = tracksInternal;
-  const [isPublic, setIsPublic] = useState(true); // Default to public visibility
+  const [isPublic, setIsPublic] = useState(initialPlaylist.isPublic ?? true); // Initialize from playlist data
   const [showSavedModal, setShowSavedModal] = useState(false);
   const [savedPlaylistData, setSavedPlaylistData] = useState<{spotifyUrl: string} | null>(null);
   // Create a session ID for this playlist - used for tracking API calls
@@ -84,6 +84,10 @@ const PlaylistEditor = ({
   
   // Track which track ID is currently being removed, for proper loading state
   const [removingTrackId, setRemovingTrackId] = useState<string | null>(null);
+  
+  // External song functionality
+  const [externalSongUrl, setExternalSongUrl] = useState("");
+  const [isAddingExternalSong, setIsAddingExternalSong] = useState(false);
   
   // Get access to playlist creator context for closing the modal
   const { closeCreator } = usePlaylistCreator();
@@ -737,6 +741,102 @@ const PlaylistEditor = ({
     } finally {
       // Always clear the removing track ID when done
       setRemovingTrackId(null);
+    }
+  };
+
+  // Add external Spotify song to playlist
+  const handleAddExternalSong = async () => {
+    if (!externalSongUrl.trim()) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid Spotify track URL",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate Spotify URL format
+    const spotifyTrackRegex = /^https:\/\/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/;
+    if (!spotifyTrackRegex.test(externalSongUrl)) {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid Spotify track URL (e.g., https://open.spotify.com/track/...)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsAddingExternalSong(true);
+
+    try {
+      // If playlist is not saved yet, save it first
+      let playlistId = databasePlaylistId;
+      if (!playlistId) {
+        const saveResult = await savePlaylist(String(user?.id || 1), title, description, tracks, "", sessionId);
+        if (saveResult && saveResult.id) {
+          playlistId = saveResult.id;
+          setDatabasePlaylistId(playlistId);
+          setDatabaseSaved(true);
+        } else {
+          throw new Error("Failed to save playlist before adding external song");
+        }
+      }
+
+      // Get user ID
+      const userId = user?.id || 1;
+
+      // Call the API to add external song
+      const response = await fetch(`/api/playlist/${playlistId}/add-external-song`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          spotifyUrl: externalSongUrl,
+          userId: userId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add external song');
+      }
+
+      const result = await response.json();
+
+      // Add the track to local state
+      const newTrack: SpotifyTrack = {
+        id: result.track.spotifyId,
+        name: result.track.title || 'Unknown Title',
+        artists: [{ name: result.track.artist || 'Unknown Artist' }],
+        album: result.track.album || 'Unknown Album',
+        duration_ms: result.track.duration || 0,
+        album_cover_image: result.track.albumCoverImage || undefined,
+        dbId: result.track.id,
+        preview_url: undefined,
+        external_urls: {
+          spotify: `https://open.spotify.com/track/${result.track.spotifyId}`
+        }
+      };
+
+      setTracks([...tracks, newTrack]);
+      setExternalSongUrl("");
+
+      toast({
+        title: "Song Added!",
+        description: result.message,
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error("Error adding external song:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add external song",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAddingExternalSong(false);
     }
   };
   
@@ -1440,6 +1540,47 @@ const PlaylistEditor = ({
                 </div>
               </div>
             </div>
+
+            {/* Add External Spotify Song */}
+            <Card className="mb-4 dark:bg-[#191414]/40 bg-gray-100/80 dark:border-gray-800 border-gray-300">
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <h4 className="font-medium text-gray-900 dark:text-white">Add External Song</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Add any song from Spotify by pasting its URL. We'll automatically resolve all platform links for smart sharing.
+                  </p>
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder="https://open.spotify.com/track/..."
+                      value={externalSongUrl}
+                      onChange={(e) => setExternalSongUrl(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={handleAddExternalSong}
+                      disabled={!externalSongUrl || isAddingExternalSong}
+                      size="sm"
+                    >
+                      {isAddingExternalSong ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                          </svg>
+                          Add Song
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             
             <Card className="dark:bg-[#191414]/40 bg-gray-100/80 dark:border-gray-800 border-gray-300 overflow-hidden">
               <div className="p-2">
@@ -1517,7 +1658,7 @@ const PlaylistEditor = ({
         </div>
         
         {/* Action bar fixed at the bottom inside the modal window */}
-        <div className="border-t dark:border-gray-800 border-gray-300 dark:bg-[#191414]/80 bg-white/80 sticky bottom-0 left-0 right-0 z-10 mt-8 w-full">
+        <div className="border-t dark:border-gray-800 border-gray-300 dark:bg-[#191414]/80 bg-white/80 sticky bottom-0 left-0 right-0 z-10 mt-0 w-full">
           <div className="flex items-center justify-center py-3 mb-2">
             <Button 
               onClick={saveToSongfuseDatabase}

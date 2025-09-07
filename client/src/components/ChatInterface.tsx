@@ -13,6 +13,7 @@ import MusicSpinner from "./MusicSpinner";
 import PlaylistProgressBar from "./PlaylistProgressBar";
 import { useToast } from "@/hooks/use-toast";
 import { Toggle } from "@/components/ui/toggle";
+import { Bot } from "lucide-react";
 
 interface ChatMessage {
   id: string;
@@ -179,12 +180,8 @@ const ChatInterface = ({ onPlaylistGenerated }: ChatInterfaceProps) => {
             className={`flex items-start ${message.isUser ? "justify-end" : ""}`}
           >
             {!message.isUser && (
-              <div className="flex-shrink-0 w-8 h-8 dark:bg-black bg-gray-200 rounded-full flex items-center justify-center mr-3 overflow-hidden">
-                <img 
-                  src="/images/icons/songfuse-logo.png" 
-                  alt="Songfuse" 
-                  className="w-full h-full object-cover"
-                />
+              <div className="flex-shrink-0 w-8 h-8 dark:bg-gradient-to-br from-blue-500 to-purple-600 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center mr-3">
+                <Bot className="w-5 h-5 text-white" />
               </div>
             )}
             

@@ -121,34 +121,34 @@ export async function uploadCoverImageWithThumbnails(
 
     // Create multiple optimized versions
     const versions = await Promise.all([
-      // Original size (640x640, high quality)
+      // Original size (1024x1024, highest quality)
       Sharp.default(buffer)
-        .resize(640, 640, { fit: 'cover' })
-        .png({ quality: 95 })
+        .resize(1024, 1024, { fit: 'cover' })
+        .png({ quality: 98, compressionLevel: 6 })
         .toBuffer(),
       
       // Thumbnail (64x64, very small for UI previews)
       Sharp.default(buffer)
         .resize(64, 64, { fit: 'cover' })
-        .png({ quality: 80, compressionLevel: 9 })
+        .png({ quality: 85, compressionLevel: 8 })
         .toBuffer(),
       
       // Small (150x150, for cards and listings)
       Sharp.default(buffer)
         .resize(150, 150, { fit: 'cover' })
-        .png({ quality: 85, compressionLevel: 8 })
+        .png({ quality: 90, compressionLevel: 7 })
         .toBuffer(),
       
       // Social (400x400, optimized for messaging apps, under 100KB)
       Sharp.default(buffer)
         .resize(400, 400, { fit: 'cover' })
-        .jpeg({ quality: 75, progressive: true })
+        .jpeg({ quality: 80, progressive: true, mozjpeg: true })
         .toBuffer(),
       
       // Open Graph (1200x630, for social media cards)
       Sharp.default(buffer)
         .resize(1200, 630, { fit: 'cover' })
-        .jpeg({ quality: 80, progressive: true })
+        .jpeg({ quality: 85, progressive: true, mozjpeg: true })
         .toBuffer()
     ]);
 
@@ -352,25 +352,25 @@ export async function generateThumbnailsForExistingCover(
       // Thumbnail (64x64)
       Sharp.default(buffer)
         .resize(64, 64, { fit: 'cover' })
-        .png({ quality: 80, compressionLevel: 9 })
+        .png({ quality: 85, compressionLevel: 8 })
         .toBuffer(),
       
       // Small (150x150)
       Sharp.default(buffer)
         .resize(150, 150, { fit: 'cover' })
-        .png({ quality: 85, compressionLevel: 8 })
+        .png({ quality: 90, compressionLevel: 7 })
         .toBuffer(),
       
       // Social (400x400)
       Sharp.default(buffer)
         .resize(400, 400, { fit: 'cover' })
-        .jpeg({ quality: 75, progressive: true })
+        .jpeg({ quality: 80, progressive: true, mozjpeg: true })
         .toBuffer(),
       
       // Open Graph (1200x630)
       Sharp.default(buffer)
         .resize(1200, 630, { fit: 'cover' })
-        .jpeg({ quality: 80, progressive: true })
+        .jpeg({ quality: 85, progressive: true, mozjpeg: true })
         .toBuffer()
     ]);
 

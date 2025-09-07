@@ -5,6 +5,8 @@
  * providing trending album data for playlist creation inspiration.
  */
 
+import { generateAlbumDescription } from '../openai';
+
 interface AppleAlbum {
   artistName: string;
   id: string;
@@ -42,6 +44,7 @@ interface ProcessedAlbum {
   appleUrl: string;
   isExplicit: boolean;
   artistId: string;
+  description?: string;
 }
 
 const APPLE_RSS_URL = 'https://rss.marketingtools.apple.com/api/v2/us/music/most-played/25/albums.json';
@@ -76,9 +79,23 @@ export async function fetchTopAlbums(): Promise<ProcessedAlbum[]> {
       isExplicit: album.contentAdvisoryRating === 'Explict', // Note: Apple has typo in their API
       artistId: album.artistId
     }));
+
+    // Generate descriptions for albums (in parallel for better performance)
+    console.log('📝 Generating album descriptions...');
+    const albumsWithDescriptions = await Promise.all(
+      processedAlbums.map(async (album) => {
+        try {
+          const description = await generateAlbumDescription(album);
+          return { ...album, description };
+        } catch (error) {
+          console.warn(`Failed to generate description for ${album.title}:`, error);
+          return album; // Return album without description if generation fails
+        }
+      })
+    );
     
-    console.log(`✅ Successfully processed ${processedAlbums.length} top albums`);
-    return processedAlbums;
+    console.log(`✅ Successfully processed ${albumsWithDescriptions.length} top albums with descriptions`);
+    return albumsWithDescriptions;
     
   } catch (error) {
     console.error('❌ Failed to fetch top albums:', error);

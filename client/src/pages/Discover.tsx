@@ -1,20 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useRoute } from "wouter";
-import { Search, X } from "lucide-react";
 import SpotifyBadge from "@/components/SpotifyBadge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import Layout from "@/components/Layout";
 import PlaylistCoverPlaceholder from "../components/PlaylistCoverPlaceholder";
+import SearchForm from "../components/SearchForm";
 import { createSlug } from "@/lib/utils";
 
 type Playlist = {
@@ -139,66 +130,23 @@ export default function Discover() {
   
   return (
     <Layout playlists={isLoggedIn ? userPlaylists : []}>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container px-2 py-4 max-w-6xl">
         <div className="flex flex-col gap-8">
           <div className="w-full">
-            <h1 className="font-bold mb-2 bg-gradient-to-r from-teal-400 to-[#1DB954] text-transparent bg-clip-text text-[40px]">
+            <h1 className="font-bold mb-4 bg-gradient-to-r from-teal-400 to-[#1DB954] text-transparent bg-clip-text text-2xl md:text-3xl lg:text-[40px] leading-normal py-1">
               Discover Playlists
             </h1>
         
         {/* Search Form */}
-        <form onSubmit={handleSearch} className="flex flex-col gap-4 mb-8 md:flex-row">
-          <div className="flex-1">
-            <div className="relative w-full">
-              <Input
-                type="text"
-                placeholder={searchType === "description" ? "Search by description..." : "Search by title..."}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleSearch(e);
-                  }
-                }}
-                className="bg-card border-border w-full text-foreground pr-10"
-              />
-              {inputValue && (
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground/70 hover:text-foreground"
-                  onClick={() => {
-                    setInputValue("");
-                    setSearchQuery(""); // Also clear the search query to reset results
-                  }}
-                  aria-label="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex gap-2">
-            <Select 
-              value={searchType} 
-              onValueChange={(value) => setSearchType(value as "title" | "description")}
-            >
-              <SelectTrigger className="bg-card border-border w-[180px] text-foreground">
-                <SelectValue className="text-foreground" placeholder="Search by" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-border">
-                <SelectItem value="title">Title</SelectItem>
-                <SelectItem value="description">Description</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button type="submit" className="bg-primary hover:bg-primary/80">
-              <Search className="h-4 w-4 mr-2" />
-              Search
-            </Button>
-          </div>
-        </form>
+        <SearchForm
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          inputValue={inputValue}
+          setInputValue={setInputValue}
+          searchType={searchType}
+          setSearchType={setSearchType}
+          onSearch={handleSearch}
+        />
         
         {/* Results */}
         <div className="mt-8">

@@ -1467,6 +1467,24 @@ export class DatabaseStorage implements IStorage {
       return false;
     }
   }
+
+  async addTrackToPlaylist(playlistId: number, trackId: number, position: number): Promise<boolean> {
+    try {
+      console.log(`Adding track ${trackId} to playlist ${playlistId} at position ${position}`);
+      
+      await db.insert(playlistTracks).values({
+        playlistId,
+        trackId,
+        position
+      });
+      
+      console.log(`Successfully added track ${trackId} to playlist ${playlistId}`);
+      return true;
+    } catch (error: any) {
+      console.error(`Error adding track ${trackId} to playlist ${playlistId}:`, error);
+      return false;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

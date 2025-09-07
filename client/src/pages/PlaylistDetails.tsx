@@ -117,7 +117,7 @@ const PlaylistDetails = ({ id, slug }: PlaylistDetailsProps) => {
 
   return (
     <Layout playlists={playlists} backgroundImage={playlist?.coverImage}>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container px-2 py-4 max-w-6xl">
         
         {isLoading ? (
           <div className="space-y-6">

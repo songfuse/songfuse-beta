@@ -33,7 +33,7 @@ interface OpenAIImageOptions {
   negative_prompt?: string;
   model?: 'gpt-image-1' | 'dall-e-3';
   size?: '1024x1024' | '1792x1024' | '1024x1792';
-  quality?: 'standard' | 'hd' | 'low'; // Added 'low' for gpt-image-1
+  quality?: 'low' | 'medium' | 'high' | 'auto'; // GPT-image-1 supported values
   style?: 'natural' | 'vivid';
   n?: number;
 }
@@ -145,22 +145,6 @@ export async function generateOpenAIImage(options: OpenAIImageOptions, playlistI
  * @returns The modified prompt
  */
 export function preparePromptForGptImage(prompt: string): string {
-  // Make sure the prompt mentions this is for a music album cover or playlist cover
-  if (!prompt.toLowerCase().includes('album cover') && 
-      !prompt.toLowerCase().includes('playlist cover') &&
-      !prompt.toLowerCase().includes('music cover')) {
-    
-    // Add context that this is a music playlist cover
-    prompt = `A stylish music playlist cover: ${prompt}`;
-  }
-  
-  // Make sure we're generating appropriate content
-  if (!prompt.toLowerCase().includes('appropriate') && 
-      !prompt.toLowerCase().includes('suitable')) {
-    
-    prompt = `${prompt}. Create an appropriate, professional image suitable for all audiences.`;
-  }
-  
   // Ensure we're not requesting celebrity or real people imagery
   if (prompt.toLowerCase().includes('celebrity') || 
       prompt.toLowerCase().includes('famous person') ||
@@ -168,6 +152,23 @@ export function preparePromptForGptImage(prompt: string): string {
     
     prompt = prompt.replace(/celebrity|famous person|famous artist/gi, 'fictional character');
     prompt += ' (without depicting any real celebrities or real people)';
+  }
+  
+  // Ensure abstract, non-human design to avoid racial bias
+  if (prompt.toLowerCase().includes('portrait') || prompt.toLowerCase().includes('characters') || prompt.toLowerCase().includes('people')) {
+    prompt += ', abstract geometric design only, no human figures or faces';
+  }
+  
+  // Reinforce abstract approach
+  if (!prompt.toLowerCase().includes('abstract') && !prompt.toLowerCase().includes('geometric')) {
+    prompt += ', abstract geometric design, no human figures';
+  }
+  
+  // Ensure the prompt is appropriate for all audiences
+  if (!prompt.toLowerCase().includes('appropriate') && 
+      !prompt.toLowerCase().includes('suitable')) {
+    
+    prompt = `${prompt}, appropriate and professional`;
   }
   
   return prompt;
