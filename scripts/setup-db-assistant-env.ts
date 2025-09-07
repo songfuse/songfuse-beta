@@ -8,12 +8,14 @@
 import { config } from 'dotenv';
 import { createAssistantWithDB } from '../server/services/assistant-with-db';
 
-// Load environment variables
-config();
+// Load environment variables from .env file
+config({ path: '../.env' });
 
 async function main() {
   try {
     console.log('🚀 Creating OpenAI Assistant with database access...');
+    console.log('Database URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+    console.log('OpenAI API Key:', process.env.OPENAI_API_KEY ? 'Set' : 'Not set');
     
     const assistantId = await createAssistantWithDB();
     

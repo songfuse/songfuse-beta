@@ -1,17 +1,16 @@
 #!/usr/bin/env tsx
 
 /**
- * Test script for the database-enabled assistant
- * This script tests the new assistant functionality
+ * Test script for the database-enabled assistant using API endpoint
+ * This script tests the new assistant functionality via HTTP requests
  */
 
 import { config } from 'dotenv';
-import { generatePlaylistWithDBAssistant } from '../server/services/assistant-with-db';
 
 // Load environment variables
 config();
 
-async function testAssistant() {
+async function testAssistantAPI() {
   const testPrompts = [
     "Create a happy summer playlist with upbeat songs",
     "Make a playlist of rock music from the 2000s",
@@ -20,7 +19,7 @@ async function testAssistant() {
     "Make a workout playlist with high energy songs"
   ];
 
-  console.log('🧪 Testing Database-Enabled Assistant...\n');
+  console.log('🧪 Testing Database-Enabled Assistant via API...\n');
 
   for (let i = 0; i < testPrompts.length; i++) {
     const prompt = testPrompts[i];
@@ -29,17 +28,29 @@ async function testAssistant() {
     
     try {
       const startTime = Date.now();
-      const result = await generatePlaylistWithDBAssistant({
-        prompt,
-        assistantId: process.env.OPENAI_ASSISTANT_ID_DB
+      
+      const response = await fetch('http://localhost:5000/_songfuse_api/playlist/db-assistant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt,
+          userId: 1,
+          sessionId: `test-${Date.now()}`
+        })
       });
+      
+      const result = await response.json();
       const duration = Date.now() - startTime;
       
       if (result.success) {
         console.log(`✅ Success! Generated ${result.songs?.length || 0} songs in ${duration}ms`);
         console.log(`🎵 First 5 songs: ${result.songs?.slice(0, 5).join(', ') || 'None'}`);
+        console.log(`📝 Message: ${result.message}`);
       } else {
         console.log(`❌ Failed: ${result.error}`);
+        console.log(`📝 Message: ${result.message}`);
       }
     } catch (error) {
       console.log(`❌ Error: ${error.message}`);
@@ -50,13 +61,11 @@ async function testAssistant() {
 }
 
 async function main() {
-  if (!process.env.OPENAI_ASSISTANT_ID_DB) {
-    console.error('❌ OPENAI_ASSISTANT_ID_DB environment variable not set');
-    console.log('Run: npm run setup-db-assistant first');
-    process.exit(1);
-  }
+  console.log('🚀 Starting API test...');
+  console.log('Make sure your server is running on localhost:5000');
+  console.log('Run: npm run dev\n');
   
-  await testAssistant();
+  await testAssistantAPI();
 }
 
 main();

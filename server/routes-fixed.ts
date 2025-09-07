@@ -3352,20 +3352,27 @@ Please create a playlist that captures the themes, mood, and energy of this news
       
       console.log(`Assistant response received: ${responseText.substring(0, 200)}...`);
       
-      // Extract JSON from markdown if present
-      let jsonText = responseText;
+      // Extract JSON from markdown if present with enhanced robustness
+      let jsonText = responseText.trim();
       
-      // Check if response contains markdown code blocks
+      // Strategy 1: Check if response contains markdown code blocks
       const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
       if (jsonMatch) {
         jsonText = jsonMatch[1].trim();
         console.log(`Extracted JSON from markdown: ${jsonText.substring(0, 100)}...`);
       } else {
-        // Try to find JSON object in the text
+        // Strategy 2: Try to find JSON object in the text
         const jsonObjectMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonObjectMatch) {
           jsonText = jsonObjectMatch[0];
           console.log(`Extracted JSON object from text: ${jsonText.substring(0, 100)}...`);
+        } else {
+          // Strategy 3: Try to find JSON array
+          const jsonArrayMatch = responseText.match(/\[[\s\S]*\]/);
+          if (jsonArrayMatch) {
+            jsonText = `{"songs": ${jsonArrayMatch[0]}}`;
+            console.log(`Extracted JSON array and wrapped in object: ${jsonText.substring(0, 100)}...`);
+          }
         }
       }
       
@@ -3421,7 +3428,36 @@ Please create a playlist that captures the themes, mood, and energy of this news
         }
       } catch (parseError) {
         console.error(`JSON parsing failed: ${parseError.message}`);
-        throw new Error(`Failed to parse assistant response: ${parseError.message}`);
+        
+        // Try fallback parsing strategies
+        try {
+          // Strategy 1: Look for any array-like structure in the raw response
+          const arrayMatch = responseText.match(/\[[\s\S]*?\]/);
+          if (arrayMatch) {
+            const songs = JSON.parse(arrayMatch[0]);
+            if (Array.isArray(songs) && songs.length > 0) {
+              parsedResponse = { songs: songs };
+              console.log(`Fallback parsing successful - found array with ${songs.length} items`);
+            }
+          }
+          
+          // Strategy 2: Try to extract individual song IDs or names
+          if (!parsedResponse) {
+            const songMatches = responseText.match(/"([^"]+)"/g);
+            if (songMatches && songMatches.length > 0) {
+              const songs = songMatches.map(match => match.replace(/"/g, ''));
+              parsedResponse = { songs: songs };
+              console.log(`Fallback parsing successful - extracted ${songs.length} song names`);
+            }
+          }
+          
+          if (!parsedResponse) {
+            throw new Error(`Failed to parse assistant response: ${parseError.message}`);
+          }
+        } catch (fallbackError) {
+          console.error(`Fallback parsing also failed: ${fallbackError.message}`);
+          throw new Error(`Failed to parse assistant response: ${parseError.message}`);
+        }
       }
       
       // Use the parsed response

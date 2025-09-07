@@ -1,7 +1,11 @@
+import { config } from 'dotenv';
 import { db } from "../db";
 import { eq, like, and, or, sql, desc, asc } from "drizzle-orm";
 import { tracks, tracksToArtists, artists, tracksToGenres, genres } from "@shared/schema";
 import { dbTrackToSpotifyTrack } from "../db";
+
+// Load environment variables
+config();
 
 /**
  * Database tools for OpenAI Assistant

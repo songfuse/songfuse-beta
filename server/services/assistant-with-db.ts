@@ -1,3 +1,4 @@
+import { config } from 'dotenv';
 import OpenAI from "openai";
 import { db } from "../db";
 import { 
@@ -11,6 +12,9 @@ import {
   getTrackStatistics,
   TrackSearchParams 
 } from "./assistant-db-tools";
+
+// Load environment variables
+config();
 
 // Initialize OpenAI client with proper production/development key selection
 function initializeOpenAI() {
@@ -103,8 +107,8 @@ You have access to these functions to query the database:
 - Prioritize tracks that best match the user's criteria
 
 ### 4. Return Response
-- **ALWAYS return ONLY a JSON object** with this exact structure:
-\`\`\`json
+- **CRITICAL: Return ONLY the JSON object, no markdown, no explanations, no text**
+- **Return this exact format with no additional text:**
 {
   "songs": [
     "id1",
@@ -114,7 +118,6 @@ You have access to these functions to query the database:
     "id24"
   ]
 }
-\`\`\`
 
 ## Rules & Constraints
 - **Database Only**: Use ONLY songs from the Songfuse database via function calls
@@ -131,7 +134,9 @@ You have access to these functions to query the database:
 5. Combine multiple searches if needed to get 24 unique tracks
 6. Use random tracks as fallback if specific searches don't yield enough results
 
-Remember: You are designed exclusively for playlist creation using the Songfuse database. Always return only the JSON response format.`,
+Remember: You are designed exclusively for playlist creation using the Songfuse database. 
+
+CRITICAL: Your response must be ONLY the JSON object with no markdown, no explanations, no additional text. Start your response with { and end with }.`,
       model: "gpt-4o",
       tools: [
         {
@@ -537,22 +542,84 @@ export async function generatePlaylistWithDBAssistant(
       const responseText = responseContent.text.value;
       console.log(`Assistant response: ${responseText}`);
       
-      // Parse the JSON response
+      // Parse the JSON response - handle markdown-wrapped JSON with enhanced robustness
       try {
-        const jsonResponse = JSON.parse(responseText);
+        let jsonText = responseText.trim();
         
+        // Strategy 1: Remove markdown code blocks if present
+        if (jsonText.includes('```json')) {
+          const jsonMatch = jsonText.match(/```json\s*([\s\S]*?)\s*```/);
+          if (jsonMatch) {
+            jsonText = jsonMatch[1].trim();
+          }
+        }
+        
+        // Strategy 2: Remove any leading/trailing text before/after JSON
+        const jsonStart = jsonText.indexOf('{');
+        const jsonEnd = jsonText.lastIndexOf('}') + 1;
+        if (jsonStart !== -1 && jsonEnd > jsonStart) {
+          jsonText = jsonText.substring(jsonStart, jsonEnd);
+        }
+        
+        // Strategy 3: Try to find JSON array if object parsing fails
+        let jsonResponse;
+        try {
+          jsonResponse = JSON.parse(jsonText);
+        } catch (firstParseError) {
+          // If object parsing fails, try to find a JSON array
+          const arrayStart = jsonText.indexOf('[');
+          const arrayEnd = jsonText.lastIndexOf(']') + 1;
+          if (arrayStart !== -1 && arrayEnd > arrayStart) {
+            const arrayText = jsonText.substring(arrayStart, arrayEnd);
+            const songsArray = JSON.parse(arrayText);
+            jsonResponse = { songs: songsArray };
+          } else {
+            throw firstParseError;
+          }
+        }
+        
+        // Strategy 4: Handle different response formats
+        let songs = null;
         if (jsonResponse.songs && Array.isArray(jsonResponse.songs)) {
+          songs = jsonResponse.songs;
+        } else if (Array.isArray(jsonResponse)) {
+          songs = jsonResponse;
+        } else if (jsonResponse.tracks && Array.isArray(jsonResponse.tracks)) {
+          songs = jsonResponse.tracks;
+        } else if (jsonResponse.playlist && jsonResponse.playlist.songs) {
+          songs = jsonResponse.playlist.songs;
+        }
+        
+        if (songs && Array.isArray(songs) && songs.length > 0) {
           return {
             success: true,
-            songs: jsonResponse.songs,
+            songs: songs,
             message: "Playlist generated successfully using database access"
           };
         } else {
-          throw new Error("Invalid response format - missing songs array");
+          throw new Error("Invalid response format - no valid songs array found");
         }
       } catch (parseError) {
         console.error("Error parsing assistant response:", parseError);
         console.log("Raw response:", responseText);
+        
+        // Try one more fallback - look for any array-like structure
+        try {
+          const arrayMatch = responseText.match(/\[[\s\S]*?\]/);
+          if (arrayMatch) {
+            const songs = JSON.parse(arrayMatch[0]);
+            if (Array.isArray(songs) && songs.length > 0) {
+              return {
+                success: true,
+                songs: songs,
+                message: "Playlist generated successfully using database access (fallback parsing)"
+              };
+            }
+          }
+        } catch (fallbackError) {
+          console.error("Fallback parsing also failed:", fallbackError);
+        }
+        
         throw new Error(`Failed to parse assistant response: ${parseError.message}`);
       }
       
