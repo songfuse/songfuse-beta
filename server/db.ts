@@ -293,7 +293,7 @@ export async function dbTrackToSpotifyTrack(
       name: track.title,
       artists: artists,
       album: album,
-      duration_ms: track.duration && track.duration < 30000 ? track.duration * 1000 : track.duration,
+      duration_ms: track.duration ? track.duration * 1000 : 0,
       preview_url: track.previewUrl,
       explicit: track.explicit,
       popularity: track.popularity || 50,
@@ -808,7 +808,7 @@ export async function importTrackFromSpotify(
         .values({
           title: spotifyTrack.name,
           albumId: albumId,
-          duration: spotifyTrack.duration_ms,
+          duration: Math.floor(spotifyTrack.duration_ms / 1000), // Convert milliseconds to seconds
           explicit: spotifyTrack.explicit || false,
           popularity: spotifyTrack.popularity || 50,
           previewUrl: spotifyTrack.preview_url || null

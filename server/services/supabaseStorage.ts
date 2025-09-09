@@ -226,6 +226,18 @@ export async function storeAiGeneratedCoverWithOptimization(
     // Upload with multiple optimized versions
     const result = await uploadCoverImageWithThumbnails(buffer, baseFilename);
     
+    // If playlistId is provided, update the database with all image URLs
+    if (playlistId) {
+      try {
+        const { updatePlaylistWithAllImageSizes } = await import('./coverImageStorage');
+        await updatePlaylistWithAllImageSizes(playlistId, result);
+        console.log(`📝 Updated playlist ${playlistId} with all optimized image URLs`);
+      } catch (dbError) {
+        console.error(`❌ Failed to update playlist ${playlistId} with image URLs:`, dbError);
+        // Don't throw here - the images were uploaded successfully
+      }
+    }
+    
     console.log(`✅ AI cover image stored with optimization for playlist ${playlistId}`);
     return result;
     

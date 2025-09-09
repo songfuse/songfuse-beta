@@ -343,17 +343,6 @@ const SidebarNav = ({ playlists: providedPlaylists = [], onNavItemClick, useProv
             {!collapsed && <span className="ml-3">Help</span>}
           </div>
           
-          <div 
-            className={cn(
-              "flex items-center py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg cursor-pointer transition-colors",
-              collapsed ? "justify-center px-2" : "px-3"
-            )}
-            onClick={() => navigate('/updates')}
-            title={collapsed ? "Updates" : "Updates"}
-          >
-            <Bell className="h-4 w-4" />
-            {!collapsed && <span className="ml-3">Updates</span>}
-          </div>
           
           <div 
             className={cn(

@@ -61,7 +61,7 @@ export async function getPlaylistByIdDirect(req: Request, res: Response) {
         t.title,
         t.preview_url,
         t.explicit,
-        t.duration AS duration_ms,
+        t.duration * 1000 AS duration_ms,
         t.danceability,
         t.energy,
         t.tempo,
@@ -172,8 +172,8 @@ export async function getPlaylistByIdDirect(req: Request, res: Response) {
         // Also add YouTube ID in alternate format for backwards compatibility
         youtube: track.youtube_id ? { id: track.youtube_id } : null,
         
-        // Audio properties - normalize duration (convert seconds to milliseconds if needed)
-        duration_ms: track.duration_ms && track.duration_ms < 30000 ? track.duration_ms * 1000 : (track.duration_ms || 0),
+        // Audio properties - duration is already in milliseconds from SQL query
+        duration_ms: track.duration_ms || 0,
         explicit: track.explicit || false,
         preview_url: track.preview_url || null,
         

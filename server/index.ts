@@ -29,7 +29,7 @@ import {
   getSocialImageStats 
 } from "./api/social-images"; // Import social image API routes
 import { storage } from "./storage"; // Import storage for smart link metadata
-import { smartLinkSSRMiddleware } from "./services/smartLinkSSR"; // Import smart link SSR service
+// Smart link SSR is handled directly in the route handler, no middleware needed
 import { simpleAuth } from "./auth/simple"; // Import simple auth middleware
 import simpleAuthRoutes from "./auth/simple-routes"; // Import simple auth routes
 
@@ -511,6 +511,10 @@ app.get("/api/smart-links/playlist/:playlistId", async (req: Request, res: Respo
         title: playlist.title,
         description: playlist.description,
         coverImageUrl: playlist.coverImageUrl,
+        thumbnailImageUrl: playlist.thumbnailImageUrl,
+        smallImageUrl: playlist.smallImageUrl,
+        socialImageUrl: playlist.socialImageUrl,
+        ogImageUrl: playlist.ogImageUrl,
         spotifyId: playlist.spotifyId,
         articleTitle: playlist.articleTitle,
         articleLink: playlist.articleLink
@@ -688,7 +692,7 @@ app.get("/api/discover/playlist/:id", async (req: Request, res: Response) => {
       SELECT 
         t.id,
         t.title,
-        t.duration AS "durationMs",
+        t.duration * 1000 AS "durationMs",
         t.explicit,
         t.preview_url,
         t.release_date,
@@ -909,8 +913,8 @@ app.get("/_songfuse_api/tracks-export", async (req: Request, res: Response) => {
         releaseDate: track.release_date,
         spotifyId: track.spotify_id || null, // Spotify ID
         // Include additional track properties
-        durationMs: track.duration, // In milliseconds
-        duration: track.duration, // Also include with standard name
+        durationMs: track.duration * 1000, // Convert seconds to milliseconds
+        duration: track.duration * 1000, // Also include with standard name
         popularity: track.popularity,
         explicit: track.explicit,
         // Audio features for enhanced track analysis
@@ -1155,6 +1159,15 @@ app.use((req, res, next) => {
   } catch (error) {
     console.error("Failed to start background embedding process:", error);
     // Continue server startup even if background process fails
+  }
+  
+  // Initialize Spotify Service Account
+  try {
+    const { SpotifyServiceAccount } = await import('./services/spotifyServiceAccount');
+    SpotifyServiceAccount.initialize();
+    console.log("✅ Spotify Service Account initialized");
+  } catch (error) {
+    console.error("❌ Failed to initialize Spotify Service Account:", error);
   }
   
   // Add direct database access routes for emergency debugging BEFORE other routes
@@ -1621,7 +1634,7 @@ app.use((req, res, next) => {
           SELECT 
             t.id,
             t.title,
-            t.duration AS duration_ms,
+            t.duration * 1000 AS duration_ms,
             alb.title AS album_name,
             COALESCE(
               (SELECT 
@@ -1711,6 +1724,10 @@ app.use((req, res, next) => {
           title: playlist.title,
           description: playlist.description,
           coverImageUrl: playlist.coverImageUrl,
+          thumbnailImageUrl: playlist.thumbnailImageUrl,
+          smallImageUrl: playlist.smallImageUrl,
+          socialImageUrl: playlist.socialImageUrl,
+          ogImageUrl: playlist.ogImageUrl,
           spotifyId: playlist.spotifyId,
           articleTitle: playlist.articleTitle,
           articleLink: playlist.articleLink
@@ -1803,8 +1820,8 @@ app.use((req, res, next) => {
     }
   });
 
-  // Add smart link SSR middleware before Vite to handle social crawlers
-  app.use(smartLinkSSRMiddleware());
+  // Smart link SSR is handled by the specific route at line 1202-1318
+  // No need for additional middleware as the new format is handled directly
   
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
@@ -1825,10 +1842,10 @@ app.use((req, res, next) => {
     console.log(`📱 Frontend: http://localhost:${port}`);
     console.log(`🔧 API: http://localhost:${port}/api`);
     
-    // Start Odesli background service for smart links
-    odesliBackgroundService.start();
-    
-    // Cover image sync removed as per user request
+  // Start Odesli background service for smart links
+  odesliBackgroundService.start();
+  
+  // Cover image sync removed as per user request
   });
 })().catch(error => {
   console.error("💥 Server startup failed:", error);

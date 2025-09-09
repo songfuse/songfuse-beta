@@ -3,6 +3,9 @@ declare global {
   var recentlyUsedTracks: Set<string>;
 }
 
+// Ensure environment variables are loaded
+import 'dotenv/config';
+
 import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -32,6 +35,9 @@ import { eq } from "drizzle-orm";
 
 // Import the v2 router with fixed API endpoints
 import v2Router from './v2-router';
+
+// Initialize Spotify service account
+import { SpotifyServiceAccount } from './services/spotifyServiceAccount';
 
 // Initialize our global state for tracking recently used tracks
 if (!global.recentlyUsedTracks) {
@@ -1063,7 +1069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate a cover image for a playlist
   app.post("/api/cover/generate", async (req: Request, res: Response) => {
     try {
-      const { userId, title, description, tracks, customPrompt, improvePrompt } = req.body;
+      const { userId, title, description, tracks, customPrompt, improvePrompt, playlistId } = req.body;
       
       if (!userId || !title) {
         return res.status(400).json({ message: "userId and title are required" });
@@ -1098,13 +1104,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log("Final image generation prompt:", finalImagePrompt);
         
-        // Generate image with GPT-Image-1 (don't pass playlistId as boolean)
-        const coverImageUrl = await openai.generateCoverImage(finalImagePrompt);
+        // Generate image with GPT-Image-1 and pass playlistId to update database with resized URLs
+        const coverImageUrl = await openai.generateCoverImage(finalImagePrompt, playlistId);
         
-        // Return the generated image URL and the prompt used
+        // Return the generated image URL, the prompt used, and whether the playlist was updated
         return res.json({ 
           coverImageUrl,
-          promptUsed: finalImagePrompt 
+          promptUsed: finalImagePrompt,
+          playlistUpdated: playlistId ? true : false
         });
       } catch (genError) {
         console.error("Error in image generation:", genError);
@@ -1124,6 +1131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save playlist to database and optionally to Spotify
   app.post("/api/playlist/save", async (req: Request, res: Response) => {
     try {
+      console.log("=== PLAYLIST SAVE ENDPOINT CALLED ===");
       const { userId, title, description, coverImageUrl, tracks, isPublic, skipSpotify } = req.body;
       
       console.log("Save playlist request received:", { userId, title, tracks: tracks?.length, skipSpotify });
@@ -1141,8 +1149,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let spotifyUrl = null;
       let spotifyId = null;
       
-      // Only try to save to Spotify if user has proper authentication and skipSpotify flag is not true
-      if (!skipSpotify && user.spotifyAccessToken && user.spotifyId) {
+      // Always try to save to Songfuse Spotify account (unless explicitly skipped)
+      if (!skipSpotify) {
+        try {
+          console.log("Attempting to save to Songfuse Spotify account...");
+          
+          // Import SpotifyServiceAccount
+          const { SpotifyServiceAccount } = await import('./services/spotifyServiceAccount');
+          console.log("SpotifyServiceAccount imported successfully");
+          
+          console.log("Checking if SpotifyServiceAccount is configured...");
+          const isConfigured = SpotifyServiceAccount.isConfigured();
+          console.log("SpotifyServiceAccount.isConfigured():", isConfigured);
+          
+          if (isConfigured) {
+            console.log("Creating playlist on Songfuse Spotify account");
+            
+            // Get service account access token
+            const serviceAccessToken = await SpotifyServiceAccount.getAccessToken();
+            
+            // Truncate description to comply with Spotify limits (300 characters max)
+            const truncatedDesc = description ? description.substring(0, 300) : "";
+            console.log("Creating playlist with description length:", truncatedDesc.length);
+            
+            // Create playlist on Songfuse Spotify account
+            spotifyPlaylist = await spotify.createPlaylist(
+              serviceAccessToken,
+              "songfuse-service", // Use service account
+              title,
+              truncatedDesc,
+              isPublic !== false
+            );
+            
+            console.log("Playlist created successfully on Songfuse account:", spotifyPlaylist.id);
+            
+            // Set values for response
+            spotifyId = spotifyPlaylist.id;
+            spotifyUrl = spotifyPlaylist.external_urls.spotify;
+
+            // Add tracks to the playlist
+            const trackUris = tracks.map(track => {
+              // Ensure track ID is valid and in correct format
+              if (!track.id) {
+                console.error("Missing track ID:", track);
+                return null;
+              }
+              // Clean up ID to ensure proper format
+              const cleanId = track.id.replace('spotify:track:', '');
+              return `spotify:track:${cleanId}`;
+            }).filter(uri => uri !== null) as string[];
+            
+            // Log the first few track URIs for debugging
+            console.log("Track URIs sample:", trackUris.slice(0, 3));
+            console.log(`Total track URIs: ${trackUris.length}`);
+            
+            await spotify.addTracksToPlaylist(serviceAccessToken, spotifyPlaylist.id, trackUris);
+            console.log("Added tracks to Songfuse playlist");
+
+            // Note: Cover image upload will be handled after database save
+          } else {
+            console.log("Songfuse Spotify service account not configured, skipping Spotify save");
+          }
+        } catch (spotifyError) {
+          console.error("Songfuse Spotify API error:", spotifyError);
+          console.error("Error details:", spotifyError.message);
+          console.error("Error stack:", spotifyError.stack);
+          // Continue with database-only approach
+          console.log("Songfuse Spotify save failed, continuing with database-only save");
+        }
+      } else {
+        console.log("Skipping Spotify save due to skipSpotify=true");
+      }
+      
+      // Legacy: Only try to save to user's Spotify if user has proper authentication and skipSpotify flag is not true
+      if (!skipSpotify && user.spotifyAccessToken && user.spotifyId && !spotifyId) {
         try {
           console.log("Creating playlist on Spotify for user:", user.spotifyId);
           
@@ -1190,6 +1270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log("Preparing to upload cover image for playlist:", spotifyPlaylist.id);
               
               // Convert image URL to base64 for Spotify API
+              const { imageUrlToBase64 } = await import('./services/imageUtils');
               const base64Image = await imageUrlToBase64(coverImageUrl);
               
               if (!base64Image) {
@@ -1401,6 +1482,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       console.log(`Saved ${uniqueTracks.length} unique tracks to database with track-song relationships`);
+
+      // Upload cover image to Spotify if we have a Spotify playlist and cover image
+      if (spotifyId && coverImageUrl) {
+        try {
+          console.log("Preparing to upload cover image for Spotify playlist:", spotifyId);
+          
+          // Get the playlist data to access resized image URLs
+          const playlistData = await storage.getPlaylist(playlist.id);
+          let imageUrlToUse = coverImageUrl;
+          
+          // Use the social image URL (400x400) for Spotify upload if available
+          if (playlistData?.socialImageUrl) {
+            imageUrlToUse = playlistData.socialImageUrl;
+            console.log("Using social image URL (400x400) for Spotify upload:", imageUrlToUse);
+          } else {
+            console.log("Using original cover image URL for Spotify upload:", imageUrlToUse);
+          }
+          
+          // Convert image URL to base64 for Spotify API
+          const { imageUrlToBase64 } = await import('./services/imageUtils');
+          const base64Image = await imageUrlToBase64(imageUrlToUse);
+          
+          if (!base64Image) {
+            console.error("Failed to convert image to base64, skipping cover upload");
+          } else {
+            console.log("Successfully converted image to base64, uploading to Spotify...");
+            
+            // Add a short delay to ensure the playlist is fully created before uploading image
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Use the service account token for upload
+            const { SpotifyServiceAccount } = await import('./services/spotifyServiceAccount');
+            const serviceAccessToken = await SpotifyServiceAccount.getAccessToken();
+            
+            await spotify.uploadPlaylistCoverImage(serviceAccessToken, spotifyId, base64Image);
+            console.log("Successfully uploaded cover image to Spotify playlist");
+          }
+        } catch (imgError) {
+          console.error("Failed to upload cover image to Spotify:", imgError);
+          // Don't fail the whole request if image upload fails
+        }
+      }
 
       res.json({
         id: playlist.id,
@@ -1712,6 +1835,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (playlist.coverImageUrl) {
           try {
             // Convert the image to base64
+            const { imageUrlToBase64 } = await import('./services/imageUtils');
             const base64Image = await imageUrlToBase64(playlist.coverImageUrl);
             
             // Upload the image to Spotify
@@ -1791,6 +1915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (playlist.coverImageUrl) {
               try {
                 // Convert the image to base64
+                const { imageUrlToBase64 } = await import('./services/imageUtils');
                 const base64Image = await imageUrlToBase64(playlist.coverImageUrl);
                 
                 // Upload the image to Spotify
@@ -1995,13 +2120,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log("Final image generation prompt for playlist:", finalImagePrompt);
         
-        // Generate image with DALL-E
-        const tempCoverImageUrl = await openai.generateCoverImage(finalImagePrompt);
+        // Generate image with DALL-E and pass playlistId to update database with resized URLs
+        const tempCoverImageUrl = await openai.generateCoverImage(finalImagePrompt, playlistId);
         
-        // Store the cover image in Supabase storage with full optimization
-        const { storeAiGeneratedCoverWithOptimization } = await import('./services/supabaseStorage');
-        const optimizedImages = await storeAiGeneratedCoverWithOptimization(tempCoverImageUrl, playlistId);
-        const permanentCoverImageUrl = optimizedImages.original;
+        // The database has already been updated with all resized URLs by generateCoverImage
+        // We can get the original URL from the database or use the returned URL
+        const permanentCoverImageUrl = tempCoverImageUrl;
         console.log("Stored optimized cover images in Supabase:", permanentCoverImageUrl);
         
         // Update the playlist in the database
@@ -2015,7 +2139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const user = await storage.getUser(parseInt(userId));
             if (user?.spotifyAccessToken) {
               // Convert image URL to base64 for Spotify upload
-              const { imageUrlToBase64 } = await import('./services/spotify');
+              const { imageUrlToBase64 } = await import('./services/imageUtils');
               const base64Image = await imageUrlToBase64(permanentCoverImageUrl);
               
               // Upload cover image to Spotify
@@ -3230,6 +3354,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Direct API endpoint - New simplified approach
+  app.post('/_songfuse_api/playlist/direct', async (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    const sessionId = crypto.randomUUID();
+    console.log(`Starting Direct API playlist generation with session ID: ${sessionId}`);
+    
+    try {
+      const { prompt, userId, sessionId: clientSessionId } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing 'prompt' field in request body",
+          error: "MISSING_PROMPT"
+        });
+      }
+      
+      console.log(`Direct API - Received prompt: "${prompt.substring(0, 100)}..."`);
+      console.time(`direct-api-${sessionId}`);
+      
+      // Import the Direct API service
+      const { generatePlaylistDirect } = await import('./services/direct-playlist');
+      
+      // Generate playlist using the Direct API approach
+      const result = await generatePlaylistDirect({
+        prompt,
+        userId,
+        sessionId: clientSessionId
+      });
+      
+      console.timeEnd(`direct-api-${sessionId}`);
+      
+      if (result.success) {
+        console.log(`Direct API - Successfully generated playlist with ${result.songs?.length || 0} songs using ${result.strategy} strategy`);
+        return res.json({
+          success: true,
+          songs: result.songs,
+          title: result.title,
+          description: result.description,
+          message: result.message || "Playlist generated successfully using Direct API",
+          strategy: result.strategy,
+          reasoning: result.reasoning,
+          sessionId: sessionId
+        });
+      } else {
+        console.error(`Direct API - Failed to generate playlist: ${result.error}`);
+        return res.status(500).json({
+          success: false,
+          message: result.message || "Failed to generate playlist",
+          error: result.error,
+          sessionId: sessionId
+        });
+      }
+    } catch (error) {
+      console.error(`Direct API - Error:`, error);
+      console.timeEnd(`direct-api-${sessionId}`);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error during playlist generation",
+        error: error.message,
+        sessionId: sessionId
+      });
+    }
+  });
+
+  // Simple Direct API endpoint - Basic working version
+  app.post('/_songfuse_api/playlist/simple-direct', async (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    const sessionId = crypto.randomUUID();
+    console.log(`Starting Simple Direct API playlist generation with session ID: ${sessionId}`);
+    
+    try {
+      const { prompt, userId, sessionId: clientSessionId } = req.body;
+      
+      if (!prompt) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing 'prompt' field in request body",
+          error: "MISSING_PROMPT"
+        });
+      }
+      
+      console.log(`Simple Direct API - Received prompt: "${prompt}"`);
+      console.time(`simple-direct-api-${sessionId}`);
+      
+      // Import the Simple Direct API service
+      const { generateSimplePlaylist } = await import('./services/simple-direct-playlist');
+      
+      // Generate playlist using the Simple Direct API approach
+      const result = await generateSimplePlaylist({
+        prompt,
+        userId,
+        sessionId: clientSessionId
+      });
+      
+      console.timeEnd(`simple-direct-api-${sessionId}`);
+      
+      if (result.success) {
+        console.log(`Simple Direct API - Successfully generated playlist with ${result.songs?.length || 0} songs`);
+        console.log(`Simple Direct API - Generated title: "${result.title}"`);
+        return res.json({
+          success: true,
+          songs: result.songs,
+          tracks: result.tracks,
+          title: result.title,
+          description: result.description,
+          message: result.message || "Playlist generated successfully using Simple Direct API",
+          strategy: result.strategy,
+          reasoning: result.reasoning,
+          sessionId: sessionId
+        });
+      } else {
+        console.error(`Simple Direct API - Failed to generate playlist: ${result.error}`);
+        return res.status(500).json({
+          success: false,
+          message: result.message || "Failed to generate playlist",
+          error: result.error,
+          sessionId: sessionId
+        });
+      }
+    } catch (error) {
+      console.error(`Simple Direct API - Error:`, error);
+      console.timeEnd(`simple-direct-api-${sessionId}`);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error during playlist generation",
+        error: error.message,
+        sessionId: sessionId
+      });
+    }
+  });
+
+  // Test endpoint to debug database queries
+  app.post('/_songfuse_api/playlist/test-db', async (req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    console.log('🧪 Testing database queries directly...');
+    
+    try {
+      const { db } = await import('./db');
+      const { tracks } = await import('@shared/schema');
+      const { sql } = await import('drizzle-orm');
+      
+      // Test simple query
+      const result = await db
+        .select({
+          id: tracks.id,
+          title: tracks.title
+        })
+        .from(tracks)
+        .orderBy(sql`RANDOM()`)
+        .limit(5);
+      
+      console.log(`✅ Found ${result.length} tracks`);
+      
+      return res.json({
+        success: true,
+        tracks: result,
+        message: `Found ${result.length} tracks`
+      });
+      
+    } catch (error) {
+      console.error('❌ Database test error:', error);
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
+
   // Direct Assistant API endpoint for playlist generation (legacy)
   // This endpoint uses a special prefix to bypass Vite middleware and connect directly to OpenAI
   app.post('/_songfuse_api/playlist/direct-assistant', async (req: Request, res: Response) => {
@@ -4106,6 +4399,192 @@ Please create a playlist that captures the themes, mood, and energy of this news
     } catch (error) {
       console.error("Test DB error:", error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Test endpoint to check Spotify service account configuration
+  app.get("/api/test-spotify-service", async (req: Request, res: Response) => {
+    try {
+      const status = SpotifyServiceAccount.getStatus();
+      res.json({ 
+        success: true, 
+        spotifyServiceAccount: status,
+        message: status.configured ? "Spotify service account is configured" : "Spotify service account is not configured"
+      });
+    } catch (error) {
+      console.error("Test Spotify service error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Auto-save playlist to Spotify endpoint (only saves once)
+  app.post("/api/playlist/auto-save-to-spotify", async (req: Request, res: Response) => {
+    try {
+      const { playlistId, userId } = req.body;
+      
+      if (!playlistId || !userId) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "playlistId and userId are required" 
+        });
+      }
+
+      console.log(`Auto-saving playlist ${playlistId} to Spotify for user ${userId}`);
+
+      // Get the playlist from database
+      const playlist = await storage.getPlaylist(playlistId);
+      if (!playlist) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Playlist not found" 
+        });
+      }
+
+      // Check if already saved to Spotify - this is the key check to prevent duplicate saves
+      if (playlist.spotifyId || playlist.spotifyUrl) {
+        console.log(`Playlist ${playlistId} already saved to Spotify (ID: ${playlist.spotifyId})`);
+        return res.json({
+          success: true,
+          message: "Playlist already saved to Spotify",
+          spotifyId: playlist.spotifyId,
+          spotifyUrl: playlist.spotifyUrl,
+          alreadySaved: true
+        });
+      }
+
+      // Get playlist tracks using the correct method for the current schema
+      const { storage: newStorage } = await import('./storage_simplified');
+      const playlistTracks = await newStorage.getPlaylistTracks(playlistId);
+      
+      if (!playlistTracks || playlistTracks.length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Playlist has no tracks" 
+        });
+      }
+      
+      // Convert to the format expected by the Spotify API
+      const tracks = playlistTracks.map(pt => pt.track);
+
+      // Check if Spotify service account is configured
+      if (!SpotifyServiceAccount.isConfigured()) {
+        return res.status(500).json({ 
+          success: false, 
+          message: "Spotify service account not configured" 
+        });
+      }
+
+      // Get service account access token
+      const serviceAccessToken = await SpotifyServiceAccount.getAccessToken();
+      console.log('Service access token:', serviceAccessToken ? 'Present' : 'Missing');
+      console.log('Token length:', serviceAccessToken?.length || 0);
+      
+      // Test the token by making a simple API call
+      try {
+        const testResponse = await fetch('https://api.spotify.com/v1/me', {
+          headers: {
+            'Authorization': `Bearer ${serviceAccessToken}`
+          }
+        });
+        console.log('Token test response status:', testResponse.status);
+        if (!testResponse.ok) {
+          const errorText = await testResponse.text();
+          console.log('Token test error:', errorText);
+        } else {
+          const userInfo = await testResponse.json();
+          console.log('Token test successful, user:', userInfo.display_name || userInfo.id);
+        }
+      } catch (error) {
+        console.error('Token test failed:', error);
+      }
+      
+      // Import spotify functions
+      const spotify = await import('./spotify-fixed');
+      
+      // Truncate description to comply with Spotify limits (300 characters max)
+      const truncatedDesc = playlist.description ? playlist.description.substring(0, 300) : "";
+      
+      // Create playlist on Songfuse Spotify account
+      console.log('Creating Spotify playlist with title:', playlist.title);
+      console.log('Description length:', truncatedDesc.length);
+      console.log('Is public:', playlist.isPublic !== false);
+      
+      const spotifyPlaylist = await spotify.createPlaylist(
+        serviceAccessToken,
+        "songfuse-service", // Use service account
+        playlist.title,
+        truncatedDesc,
+        playlist.isPublic !== false
+      );
+      
+      console.log(`Playlist created successfully on Songfuse account: ${spotifyPlaylist.id}`);
+      
+      // Add tracks to the playlist
+      const trackUris = tracks.map(track => {
+        // Get Spotify ID from platformIds array
+        const spotifyPlatformId = track.platformIds?.find(p => p.platform === 'spotify');
+        if (!spotifyPlatformId?.platformId) {
+          console.error("Missing Spotify ID for track:", track.title);
+          return null;
+        }
+        // Clean up ID to ensure proper format
+        const cleanId = spotifyPlatformId.platformId.replace('spotify:track:', '');
+        return `spotify:track:${cleanId}`;
+      }).filter(uri => uri !== null) as string[];
+      
+      await spotify.addTracksToPlaylist(serviceAccessToken, spotifyPlaylist.id, trackUris);
+      console.log("Added tracks to Songfuse playlist");
+
+      // Upload custom cover if provided
+      if (playlist.coverImage || playlist.coverImageUrl) {
+        try {
+          console.log("Preparing to upload cover image for Songfuse playlist:", spotifyPlaylist.id);
+          
+          // Refresh token before cover upload to ensure it's still valid
+          const freshToken = await SpotifyServiceAccount.getAccessToken();
+          console.log('Fresh token for cover upload:', freshToken ? 'Present' : 'Missing');
+          
+          // Convert image URL to base64 for Spotify API
+          const { imageUrlToBase64 } = await import('./services/imageUtils');
+          const coverImageUrl = playlist.coverImage || playlist.coverImageUrl;
+          const base64Image = await imageUrlToBase64(coverImageUrl);
+          
+          if (base64Image) {
+            // Add a short delay to ensure the playlist is fully created before uploading image
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await spotify.uploadPlaylistCoverImage(freshToken, spotifyPlaylist.id, base64Image);
+            console.log("Successfully uploaded cover image to Songfuse playlist");
+          }
+        } catch (imgError) {
+          console.error("Failed to upload cover image:", imgError);
+          // Don't fail the whole request if image upload fails
+        }
+      }
+      
+      // Update the playlist in database with Spotify information
+      await storage.updatePlaylist(playlistId, {
+        spotifyId: spotifyPlaylist.id,
+        spotifyUrl: spotifyPlaylist.external_urls.spotify
+      });
+      
+      console.log(`Successfully auto-saved playlist ${playlistId} to Spotify`);
+      
+      res.json({
+        success: true,
+        message: "Playlist successfully saved to Spotify",
+        spotifyId: spotifyPlaylist.id,
+        spotifyUrl: spotifyPlaylist.external_urls.spotify,
+        alreadySaved: false
+      });
+      
+    } catch (error) {
+      console.error("Error auto-saving playlist to Spotify:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to auto-save playlist to Spotify",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

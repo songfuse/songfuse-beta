@@ -28,7 +28,7 @@ interface ChatInterfaceProps {
 
 const ChatInterface = ({ onPlaylistGenerated }: ChatInterfaceProps) => {
   const { user } = useAuth();
-  const { generatePlaylist, generatePlaylistWithDirectAssistant, isLoading } = useSpotify();
+  const { generatePlaylist, generatePlaylistWithDirectAssistant, generatePlaylistWithEnhancedDirect, isLoading } = useSpotify();
   const { initialPrompt, setInitialPrompt, setIsLoading, articleData } = usePlaylistCreator();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [prompt, setPromptState] = useState<string>("");
@@ -121,9 +121,9 @@ const ChatInterface = ({ onPlaylistGenerated }: ChatInterfaceProps) => {
       setPrompt("");
     }
     
-    // Generate playlist from AI - always using direct Assistant API by default
+    // Generate playlist from AI - using Enhanced Direct API by default
     const result = useDirectAssistant 
-      ? await generatePlaylistWithDirectAssistant(promptText, sessionId, articleData)
+      ? await generatePlaylistWithEnhancedDirect(promptText, sessionId, articleData)
       : await generatePlaylist(promptText, sessionId, articleData);
     
     if (result) {

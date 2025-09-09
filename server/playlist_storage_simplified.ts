@@ -198,7 +198,7 @@ export class PlaylistStorage {
         // Build the enriched track object with proper duration mapping
         const enrichedTrack = {
           ...result.track,
-          duration_ms: result.track.duration, // Map database 'duration' to frontend 'duration_ms'
+          duration_ms: result.track.duration ? result.track.duration * 1000 : 0, // Convert seconds to milliseconds
           platforms: platforms.reduce((acc, p) => {
             acc[p.platform] = { id: p.platformId, url: p.platformUrl };
             return acc;

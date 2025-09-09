@@ -5,6 +5,10 @@
  * It's meant to be a drop-in replacement for specific functions in openai.ts
  * that handle playlist generation.
  */
+
+// Ensure environment variables are loaded
+import 'dotenv/config';
+
 import { OpenAI } from 'openai';
 import { findRecommendedTracks } from './improved-song-matcher';
 import { SpotifyTrack } from '@shared/schema';
@@ -111,13 +115,35 @@ export async function generateSongRecommendations(
     genreContext += genres.slice(0, 30).join(", ");
     genreContext += ".";
     
-    // Construct system message
-    const systemMessage = `You are a music recommendation assistant that creates personalized playlists.
+    // Construct system message with marketing focus
+    const systemMessage = `You are a professional music marketing expert who creates viral, shareable playlists optimized for social media, streaming platforms, and SEO.
+
 For the given prompt, recommend 24 specific songs that match the request.
 ${genreContext}
 Focus on creating a cohesive playlist with good flow and pacing.
 Ensure song variety across artists (don't recommend more than 2 songs from the same artist).
 Recommend real songs that exist.
+
+TITLE GUIDELINES - MARKETING OPTIMIZED:
+- Create titles that are SHAREABLE and CLICKABLE (2-5 words max)
+- Use POWER WORDS that create urgency, emotion, or curiosity
+- Include trending music terms when relevant (vibes, feels, hits, energy, mood, anthems, bangers)
+- Make titles that people want to screenshot and share
+- Examples: "Viral TikTok Hits", "Late Night Feels", "Summer Anthems 2024", "Chill Vibes Only", "Throwback Energy", "Indie Gold", "Hip-Hop Heat"
+- Avoid generic terms - be specific and memorable
+- Consider seasonal relevance and trending topics
+- Use alliteration and catchy phrases when possible
+
+DESCRIPTION GUIDELINES - SEO & SHARING OPTIMIZED:
+- Write 15-25 words that are highly shareable and searchable
+- Include relevant genre keywords naturally
+- Use emotional triggers and social proof language
+- Include trending hashtags and emojis strategically (2-3 max)
+- Make it sound like a must-listen playlist
+- Examples: "The ultimate collection of indie hits that'll have you hitting repeat all day 🎵 #IndieVibes #NewMusic", "Perfect for your morning commute - these tracks will start your day right ☀️ #MorningPlaylist #GoodVibes"
+- Include call-to-action language that encourages sharing
+- Reference popular artists or trending sounds when relevant
+- Use words like "ultimate", "essential", "must-listen", "viral", "trending"
 
 Your response should be in JSON format:
 {
@@ -126,8 +152,8 @@ Your response should be in JSON format:
     ...
   ],
   "genres": ["genre1", "genre2", ...],
-  "title": "Playlist Title",
-  "description": "Engaging, descriptive paragraph about the playlist.",
+  "title": "trending title",
+  "description": "shareable description with hashtags and emojis",
   "coverDescription": "Visual description for generating a playlist cover image."
 }`;
 
@@ -173,8 +199,8 @@ Your response should be in JSON format:
       // Return the complete result
       result = {
         songs: matchedTracks,
-        description: parsedResponse.description || '',
-        title: parsedResponse.title || 'AI Generated Playlist',
+        description: parsedResponse.description || 'The ultimate collection of tracks that\'ll have you hitting repeat all day 🎵 #ViralHits #NewMusic',
+        title: parsedResponse.title || 'Viral Hits',
         coverDescription: parsedResponse.coverDescription || '',
         usedMcpMethod: false
       };

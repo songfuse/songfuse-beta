@@ -677,6 +677,128 @@ export function useSpotify() {
     }
   };
 
+  // Generate a playlist using the Enhanced Direct API
+  const generatePlaylistWithEnhancedDirect = async (prompt: string, sessionId: string, articleData?: { title: string; link: string }): Promise<{
+    message: string;
+    playlist: GeneratedPlaylist;
+    suggestions?: string[];
+  } | null> => {
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "Please log in to generate a playlist",
+        variant: "destructive"
+      });
+      return null;
+    }
+
+    setIsLoading(true);
+    try {
+      console.log("Using Enhanced Direct API...");
+      
+      const response = await fetch("/_songfuse_api/playlist/simple-direct", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({ 
+          userId: user.id,
+          sessionId,
+          prompt
+        })
+      });
+      
+      if (!response.ok) {
+        console.error("Enhanced Direct API request failed with status:", response.status);
+        const errorText = await response.text();
+        console.error("Error response text:", errorText);
+        throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log("Enhanced Direct API response:", data);
+      
+      if (!data.success) {
+        throw new Error(data.message || "Failed to generate playlist");
+      }
+      
+      // Convert the Enhanced Direct API response to our expected format
+      const playlist: GeneratedPlaylist = {
+        id: `enhanced-${Date.now()}`,
+        title: data.title || ``,
+        description: data.description || ``,
+        tracks: data.tracks ? data.tracks.map((track: any, index: number) => ({
+          id: track.id.toString(),
+          name: track.title || `Track ${index + 1}`,
+          artists: track.artist_names?.map((name: string) => ({ name })) || [{ name: 'Unknown Artist' }],
+          album: { 
+            name: track.album_name || 'Unknown Album',
+            images: track.album_cover ? [{ url: track.album_cover }] : []
+          },
+          duration_ms: track.duration ? track.duration * 1000 : 180000, // Convert seconds to milliseconds
+          preview_url: track.previewUrl || null,
+          external_urls: { spotify: track.spotify_url || '' },
+          uri: track.spotify_id ? `spotify:track:${track.spotify_id}` : `spotify:track:${track.id}`,
+          track_number: index + 1,
+          disc_number: 1,
+          explicit: track.explicit || false,
+          popularity: track.popularity || 50,
+          available_markets: [],
+          external_ids: {},
+          href: '',
+          type: 'track',
+          // Add database ID for frontend compatibility
+          dbId: track.id,
+          // Add Spotify ID for embed compatibility
+          spotify_id: track.spotify_id
+        })) : data.songs.map((songId: string, index: number) => ({
+          id: songId,
+          name: `Track ${index + 1}`,
+          artists: [{ name: 'Unknown Artist' }],
+          album: { name: 'Unknown Album' },
+          duration_ms: 180000,
+          preview_url: null,
+          external_urls: { spotify: '' },
+          uri: `spotify:track:${songId}`,
+          track_number: index + 1,
+          disc_number: 1,
+          explicit: false,
+          popularity: 50,
+          available_markets: [],
+          external_ids: {},
+          href: '',
+          type: 'track',
+          dbId: parseInt(songId)
+        })),
+        coverImageUrl: "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        userId: user.id,
+        isPublic: false,
+        spotifyId: null,
+        spotifyUrl: null
+      };
+      
+      return {
+        message: data.message || `Playlist generated using ${data.strategy} strategy`,
+        playlist,
+        suggestions: []
+      };
+      
+    } catch (error) {
+      console.error("Error generating playlist with Enhanced Direct API:", error);
+      toast({
+        title: "Generation failed",
+        description: "Failed to generate playlist. Please try again.",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Generate a playlist directly with Assistant API (no MCP)
   const generatePlaylistWithDirectAssistant = async (prompt: string, sessionId: string, articleData?: { title: string; link: string }): Promise<{
     message: string;
@@ -1205,6 +1327,7 @@ export function useSpotify() {
     isUploadingCover,
     generatePlaylist,
     generatePlaylistWithDirectAssistant,
+    generatePlaylistWithEnhancedDirect,
     generateCoverImage,
     uploadCustomCover,
     fetchCoverImage,

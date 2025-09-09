@@ -43,10 +43,13 @@ export class SpotifyServiceAccount {
     }
 
     // Check if token is expired or will expire in the next 5 minutes
-    if (this.tokenExpiresAt && this.tokenExpiresAt <= new Date(Date.now() + 5 * 60 * 1000)) {
+    if (this.tokenExpiresAt && this.tokenExpiresAt <= new Date()) {
       console.log('🔄 Spotify service account token expired, refreshing...');
       await this.refreshAccessToken();
     }
+
+    // Only refresh if token is actually expired
+    // Removed forced refresh as it might be causing issues
 
     return this.accessToken;
   }

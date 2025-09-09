@@ -257,38 +257,51 @@ async function generateTitleAndDescription(
   const randomDescStyle = descriptionStyles[Math.floor(Math.random() * descriptionStyles.length)];
   const randomOpening = openingPhrases[Math.floor(Math.random() * openingPhrases.length)];
   
-  const systemPrompt = `You are a creative playlist curator with exceptional naming talent. Generate a unique title and engaging description that stands out from typical streaming platform playlists.
+  const systemPrompt = `You are a professional music marketing expert who creates viral, shareable playlist titles and descriptions optimized for social media, streaming platforms, and SEO.
 
-TITLE GUIDELINES:
-- Create a title using this pattern: ${randomTitlePattern}
-- Keep it concise (2-6 words) and memorable
-- Make it reflect the unique mood, theme, or story of the music
-- Avoid generic phrases like "Playlist for..." or overused terms
-- Make your title intriguing enough that someone would want to click it
-- Be original - avoid titles that sound like other popular playlists
+TITLE GUIDELINES - MARKETING OPTIMIZED:
+- Create titles that are SHAREABLE and CLICKABLE (2-5 words max)
+- Use POWER WORDS that create urgency, emotion, or curiosity
+- Include trending music terms when relevant (vibes, feels, hits, energy, mood, anthems, bangers)
+- Make titles that people want to screenshot and share
+- Examples: "Viral TikTok Hits", "Late Night Feels", "Summer Anthems 2024", "Chill Vibes Only", "Throwback Energy", "Indie Gold", "Hip-Hop Heat"
+- Avoid generic terms - be specific and memorable
+- Consider seasonal relevance and trending topics
+- Use alliteration and catchy phrases when possible
+- Create titles using this pattern: ${randomTitlePattern}
 
-DESCRIPTION GUIDELINES:
+DESCRIPTION GUIDELINES - SEO & SHARING OPTIMIZED:
+- Write 15-25 words that are highly shareable and searchable
+- Include relevant genre keywords naturally
+- Use emotional triggers and social proof language
+- Include trending hashtags and emojis strategically (2-3 max)
+- Make it sound like a must-listen playlist
+- Examples: "The ultimate collection of indie hits that'll have you hitting repeat all day 🎵 #IndieVibes #NewMusic", "Perfect for your morning commute - these tracks will start your day right ☀️ #MorningPlaylist #GoodVibes"
+- Include call-to-action language that encourages sharing
+- Reference popular artists or trending sounds when relevant
+- Use words like "ultimate", "essential", "must-listen", "viral", "trending"
 - Write in a style that is ${randomDescStyle}
-- Keep it brief (2-3 short sentences maximum)
 - Consider starting with "${randomOpening}..." if it fits well
-- Use language that evokes specific feelings or creates vivid mental images
-- Include subtle references to key artists, genres, or musical elements
-- Make the description unique - not something that could apply to any playlist
+
+Make both title and description feel like they belong on a trending playlist that everyone wants to discover and share.
 
 Return your response as a JSON object with 'title' and 'description' fields.`;
 
-  const userPrompt = `Create a unique playlist based on this prompt: "${prompt}"
+  const userPrompt = `Create a viral-worthy playlist based on this prompt: "${prompt}"
   
 Here are some of the tracks that were selected for the playlist:
 - ${trackInfo}
 
-IMPORTANT:
+IMPORTANT - MARKETING FOCUS:
 - Create a title using the pattern: ${randomTitlePattern}
 - Write a description in a ${randomDescStyle} style
 - Consider starting with "${randomOpening}..." if it fits
-- Make both title and description feel fresh and distinctive
+- Make both title and description feel fresh, distinctive, and SHAREABLE
+- Focus on trending music culture and social media appeal
+- Include relevant hashtags and emojis in the description
+- Make it sound like a must-listen playlist that everyone will want to discover
 
-Return a JSON object with your creative title and description.`;
+Return a JSON object with your viral-worthy title and shareable description.`;
 
   try {
     const response = await openai.chat.completions.create({

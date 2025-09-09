@@ -26,6 +26,7 @@ import ExactMatchTest from "@/pages/ExactMatchTest";
 import DirectMatchTest from "@/pages/DirectMatchTest";
 import SongMatchTest from "@/pages/SongMatchTest";
 import EnhancedPlaylistTest from "@/pages/EnhancedPlaylistTest";
+import EnhancedDirectTest from "@/pages/EnhancedDirectTest";
 import TrackDebugger from "@/pages/TrackDebugger";
 import PlaylistTrackDebugger from "@/pages/PlaylistTrackDebugger";
 import DirectTrackFinder from "@/pages/DirectTrackFinder";
@@ -162,6 +163,9 @@ function Router() {
       <Route path="/enhanced-playlist-test">
         {() => <ProtectedRoute component={EnhancedPlaylistTest} />}
       </Route>
+      <Route path="/enhanced-direct-test">
+        {() => <ProtectedRoute component={EnhancedDirectTest} />}
+      </Route>
       <Route path="/track-debugger">
         {() => <TrackDebugger />}
       </Route>
@@ -201,17 +205,23 @@ function Router() {
       <Route path="/discover/:type/:query">
         <Discover />
       </Route>
-      {/* Playlist Sharing Link sharing route - new format */}
-      <Route path="/share/:playlistId/:title">
-        {(params) => <SmartLinkPublic playlistId={params.playlistId} title={params.title} />}
-      </Route>
-      {/* Playlist Sharing Link sharing route - playlist-{id} format */}
+      {/* Playlist Sharing Link sharing route - playlist-{id} format (most specific) */}
       <Route path="/share/playlist-:playlistId/:title">
         {(params) => <SmartLinkPublic playlistId={params.playlistId} title={params.title} />}
       </Route>
-      {/* Playlist Sharing Link sharing route - legacy format for backward compatibility */}
+      {/* Playlist Sharing Link sharing route - new format (numeric ID with title) */}
+      <Route path="/share/:playlistId/:title">
+        {(params) => {
+          console.log('Route matched /share/:playlistId/:title with params:', params);
+          return <SmartLinkPublic playlistId={params.playlistId} title={params.title} />;
+        }}
+      </Route>
+      {/* Playlist Sharing Link sharing route - legacy format for backward compatibility (least specific) */}
       <Route path="/share/:shareId">
-        {(params) => <SmartLinkPublic shareId={params.shareId} />}
+        {(params) => {
+          console.log('Route matched /share/:shareId with params:', params);
+          return <SmartLinkPublic shareId={params.shareId} />;
+        }}
       </Route>
       <Route component={NotFound} />
     </Switch>
@@ -239,3 +249,4 @@ function App() {
 }
 
 export default App;
+

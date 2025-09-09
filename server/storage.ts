@@ -1004,30 +1004,10 @@ export class DatabaseStorage implements IStorage {
 
         return playlistTracksResults.map(pt => {
           const rawDuration = pt.track.duration || 0;
-          // Always ensure duration is in milliseconds for consistency
-          // If value is very small (< 1000), assume it's in seconds and convert
-          // If value is between 1000-10000, could be either - check if reasonable as seconds
-          let durationMs: number;
-          if (rawDuration === 0) {
-            durationMs = 0;
-          } else if (rawDuration < 1000) {
-            // Definitely seconds, convert to milliseconds
-            durationMs = rawDuration * 1000;
-          } else if (rawDuration < 10000) {
-            // Could be seconds (3-9 min songs) or milliseconds (very short clips)
-            // If treating as seconds gives a reasonable song length (3-10 min), use that
-            const asSeconds = rawDuration;
-            if (asSeconds >= 60 && asSeconds <= 600) { // 1-10 minutes
-              durationMs = asSeconds * 1000;
-            } else {
-              durationMs = rawDuration; // Keep as milliseconds
-            }
-          } else {
-            // Large number, definitely milliseconds
-            durationMs = rawDuration;
-          }
+          // Database stores duration in seconds, convert to milliseconds for frontend
+          const durationMs = rawDuration * 1000;
           
-          console.log(`Track "${pt.track.title}" - Duration: ${rawDuration} -> ${durationMs}ms`);
+          console.log(`Track "${pt.track.title}" - Duration: ${rawDuration}s -> ${durationMs}ms`);
           return {
             id: pt.track.id,
             title: pt.track.title,

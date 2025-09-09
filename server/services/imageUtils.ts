@@ -113,13 +113,13 @@ export async function imageUrlToBase64(url: string): Promise<string> {
       console.log("Initial processing result (250x250, 40% quality):", processedBuffer.length, "bytes");
       
       // Spotify's API requires images under ~200KB, aim for much lower to avoid 502 errors
-      // Target 50KB for maximum compatibility
-      if (processedBuffer.length > 50000) { // 50KB
+      // Target 30KB for maximum compatibility with Spotify's strict limits
+      if (processedBuffer.length > 30000) { // 30KB
         let quality = 30;
         let size = 250;
         
         // Try progressively more aggressive optimizations
-        while (processedBuffer.length > 50000 && (quality > 10 || size > 150)) {
+        while (processedBuffer.length > 30000 && (quality > 10 || size > 150)) {
           // First try reducing quality
           if (quality > 10) {
             console.log(`Image still too large (${processedBuffer.length} bytes), reducing quality to ${quality}%`);

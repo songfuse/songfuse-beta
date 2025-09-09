@@ -276,7 +276,10 @@ export class DatabaseStorage implements IStorage {
         
         // Get track genres
         const trackGenres = await db.select({
-          genre: genres
+          genre: {
+            id: genres.id,
+            name: genres.name
+          }
         })
         .from(tracksToGenres)
         .innerJoin(genres, eq(tracksToGenres.genreId, genres.id))

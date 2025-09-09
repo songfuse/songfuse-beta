@@ -3,6 +3,9 @@
  * This file provides a specific interface for AI operations needed by the MCP service
  */
 
+// Ensure environment variables are loaded
+import 'dotenv/config';
+
 import OpenAI from 'openai';
 import type { SpotifyTrack } from '@shared/schema';
 import type { SearchCriteria } from './index';

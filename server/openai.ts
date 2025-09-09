@@ -3,6 +3,9 @@ import { GeneratedPlaylist, SpotifyTrack } from "@shared/schema";
 import fs from 'fs';
 import path from 'path';
 
+// Ensure environment variables are loaded
+import 'dotenv/config';
+
 // Initialize OpenAI with proper error handling for different key formats
 function initializeOpenAI() {
   try {
@@ -259,50 +262,58 @@ export async function generatePlaylistIdeas(
     console.log("Using modern playlist-style title and description generation");
 
     const systemPrompt = isImprovement 
-      ? `You are a modern music curator who creates modern playlist titles and descriptions that feel authentic and engaging. Based on the user's improvement request, generate a NEW, IMPROVED title and description.
+      ? `You are a professional music marketing expert who creates viral, shareable playlist titles and descriptions optimized for social media, streaming platforms, and SEO. Based on the user's improvement request, generate a NEW, IMPROVED title and description.
 
 CRITICAL: Detect the language of the user's original prompt and respond in the SAME LANGUAGE throughout.
 
-TITLE GUIDELINES - MANDATORY 3-4 word format:
-- REQUIRED: Exactly 3-4 words only
-- REQUIRED: First word must be ALL UPPERCASE
-- REQUIRED: Remaining words lowercase (except proper nouns)
-- EXAMPLES: "GOLDEN hour vibes", "MIDNIGHT drive feels", "SUMMER nostalgia hits"
-- NO EXCEPTIONS: Never exceed 4 words
-- NO COLONS, NO SUBTITLES, NO LONG PHRASES
+TITLE GUIDELINES - MARKETING OPTIMIZED:
+- Create titles that are SHAREABLE and CLICKABLE (2-5 words max)
+- Use POWER WORDS that create urgency, emotion, or curiosity
+- Include trending music terms when relevant (vibes, feels, hits, energy, mood, anthems, bangers)
+- Make titles that people want to screenshot and share
+- Examples: "Viral TikTok Hits", "Late Night Feels", "Summer Anthems 2024", "Chill Vibes Only", "Throwback Energy", "Indie Gold", "Hip-Hop Heat"
+- Avoid generic terms - be specific and memorable
+- Consider seasonal relevance and trending topics
+- Use alliteration and catchy phrases when possible
 
-DESCRIPTION GUIDELINES - Write 10-20 words that are:
-- Engaging and modern, contemporary playlist style
-- Playful, casual, and emotionally resonant
-- Include 1-2 relevant emojis when appropriate
-- Use cultural lingo and conversational language
-- Invite listeners to press play
-- Avoid overexplaining - keep it cool and inviting
-- Examples: "for when you need to feel everything at once 💔", "your new obsession starts here ✨", "vibes for late night drives and deep thoughts 🌙"
+DESCRIPTION GUIDELINES - SEO & SHARING OPTIMIZED:
+- Write 15-25 words that are highly shareable and searchable
+- Include relevant genre keywords naturally
+- Use emotional triggers and social proof language
+- Include trending hashtags and emojis strategically (2-3 max)
+- Make it sound like a must-listen playlist
+- Examples: "The ultimate collection of indie hits that'll have you hitting repeat all day 🎵 #IndieVibes #NewMusic", "Perfect for your morning commute - these tracks will start your day right ☀️ #MorningPlaylist #GoodVibes"
+- Include call-to-action language that encourages sharing
+- Reference popular artists or trending sounds when relevant
+- Use words like "ultimate", "essential", "must-listen", "viral", "trending"
 
-Make both title and description feel authentic, not like corporate marketing copy.`
-      : `You are a modern music curator who creates modern playlist titles and descriptions that feel authentic and engaging.
+Make both title and description feel like they belong on a trending playlist that everyone wants to discover and share.`
+      : `You are a professional music marketing expert who creates viral, shareable playlist titles and descriptions optimized for social media, streaming platforms, and SEO.
 
 CRITICAL: Detect the language of the user's original prompt and respond in the SAME LANGUAGE throughout.
 
-TITLE GUIDELINES - MANDATORY 3-4 word format:
-- REQUIRED: Exactly 3-4 words only
-- REQUIRED: First word must be ALL UPPERCASE
-- REQUIRED: Remaining words lowercase (except proper nouns)
-- EXAMPLES: "GOLDEN hour vibes", "MIDNIGHT drive feels", "SUMMER nostalgia hits"
-- NO EXCEPTIONS: Never exceed 4 words
-- NO COLONS, NO SUBTITLES, NO LONG PHRASES
+TITLE GUIDELINES - MARKETING OPTIMIZED:
+- Create titles that are SHAREABLE and CLICKABLE (2-5 words max)
+- Use POWER WORDS that create urgency, emotion, or curiosity
+- Include trending music terms when relevant (vibes, feels, hits, energy, mood, anthems, bangers)
+- Make titles that people want to screenshot and share
+- Examples: "Viral TikTok Hits", "Late Night Feels", "Summer Anthems 2024", "Chill Vibes Only", "Throwback Energy", "Indie Gold", "Hip-Hop Heat"
+- Avoid generic terms - be specific and memorable
+- Consider seasonal relevance and trending topics
+- Use alliteration and catchy phrases when possible
 
-DESCRIPTION GUIDELINES - Write 10-20 words that are:
-- Engaging and modern, contemporary playlist style
-- Playful, casual, and emotionally resonant
-- Include 1-2 relevant emojis when appropriate
-- Use cultural lingo and conversational language
-- Invite listeners to press play
-- Avoid overexplaining - keep it cool and inviting
-- Examples: "for when you need to feel everything at once 💔", "your new obsession starts here ✨", "vibes for late night drives and deep thoughts 🌙"
+DESCRIPTION GUIDELINES - SEO & SHARING OPTIMIZED:
+- Write 15-25 words that are highly shareable and searchable
+- Include relevant genre keywords naturally
+- Use emotional triggers and social proof language
+- Include trending hashtags and emojis strategically (2-3 max)
+- Make it sound like a must-listen playlist
+- Examples: "The ultimate collection of indie hits that'll have you hitting repeat all day 🎵 #IndieVibes #NewMusic", "Perfect for your morning commute - these tracks will start your day right ☀️ #MorningPlaylist #GoodVibes"
+- Include call-to-action language that encourages sharing
+- Reference popular artists or trending sounds when relevant
+- Use words like "ultimate", "essential", "must-listen", "viral", "trending"
 
-Make both title and description feel authentic, not like corporate marketing copy.`;
+Make both title and description feel like they belong on a trending playlist that everyone wants to discover and share.`;
 
     const userPrompt = isImprovement
       ? `IMPROVEMENT REQUEST: "${prompt}". 
@@ -311,18 +322,18 @@ The playlist contains these tracks (showing first 5):
 ${tracks.map(t => `"${t.name}" by ${t.artists.map(a => a.name).join(', ')}`).slice(0, 5).join('\n')} 
 ...and ${tracks.length - 5} more tracks by various artists.
 
-Create a short, catchy title (3-4 words with UPPERCASE first word) and engaging description (10-20 words) that follows modern playlist style.
+Create a viral-worthy title and shareable description that will make people want to discover and share this playlist. Focus on trending music culture, social media appeal, and SEO optimization.
 
-Respond with JSON in the format: { "title": "your title", "description": "your description" }`
-      : `Create a unique playlist based on this prompt: "${prompt}".
+Respond with JSON in the format: { "title": "trending title", "description": "shareable description with hashtags and emojis" }`
+      : `Create a viral-worthy playlist based on this prompt: "${prompt}".
 
 The playlist contains these tracks (showing first 5):
 ${tracks.map(t => `"${t.name}" by ${t.artists.map(a => a.name).join(', ')}`).slice(0, 5).join('\n')}
 ...and ${tracks.length - 5} more tracks by various artists.
 
-Create a short, catchy title (3-4 words with UPPERCASE first word) and engaging description (10-20 words) that follows modern playlist style.
+Create a viral-worthy title and shareable description that will make people want to discover and share this playlist. Focus on trending music culture, social media appeal, and SEO optimization.
 
-Respond with JSON in the format: { "title": "your title", "description": "your description" }`;
+Respond with JSON in the format: { "title": "trending title", "description": "shareable description with hashtags and emojis" }`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4",
@@ -345,20 +356,14 @@ Respond with JSON in the format: { "title": "your title", "description": "your d
 
     console.log("Parsed JSON result:", result);
 
-    // Add signature to the end of the description
-    const signature = "\n\nMade with love by songfuse.app";
     return {
       title: result.title,
-      description: result.description + signature
+      description: result.description
     };
   } catch (error) {
     console.error("Error generating playlist ideas:", error);
-    // Add signature to the end of the description (even in error case) - use modern playlist style
-    const signature = "\n\nMade with love by songfuse.app";
-    return {
-      title: "CURATED music vibes",
-      description: "vibes for when you need the perfect soundtrack ✨" + signature
-    };
+    // Use contextual fallback based on prompt
+    return generateContextualFallback(prompt);
   }
 }
 
@@ -395,14 +400,14 @@ export async function generateCoverImageDescription(
     const { genre, mood, audience } = analyzePlaylistContext(title, description, uniqueArtists);
     
     // Generate brand-neutral playlist cover prompt
-    const coverPrompt = generatePlaylistCoverPrompt(title, mood, genre, audience, userPrompt);
+    const coverPrompt = generatePlaylistCoverPrompt(title, mood, genre, audience, userPrompt, tracks);
     
     console.log("Generated brand-neutral playlist cover prompt:", coverPrompt);
     return coverPrompt;
   } catch (error) {
     console.error("Error generating cover image description:", error);
     // Fallback to simple prompt
-    return generatePlaylistCoverPrompt(title, "energetic", "pop", "general music lovers", userPrompt);
+    return generatePlaylistCoverPrompt(title, "energetic", "pop", "general music lovers", userPrompt, tracks);
   }
 }
 
@@ -507,12 +512,308 @@ const diversityStats = {
 /**
  * Generate brand-neutral playlist cover image prompt with enhanced diversity
  */
+/**
+ * Generate character and topic-based elements for cover diversity
+ */
+function generateCharacterAndTopicElements(
+  title: string,
+  mood: string,
+  genre: string,
+  tracks: any[] = []
+): string | null {
+  // 70% chance to include character elements for diversity
+  if (Math.random() > 0.7) {
+    return null;
+  }
+
+  // Extract key themes from title and tracks
+  const titleWords = title.toLowerCase().split(/\s+/);
+  const trackArtists = tracks
+    .filter(track => track && track.artists && Array.isArray(track.artists))
+    .map(track => track.artists[0]?.name?.toLowerCase())
+    .filter(Boolean)
+    .slice(0, 10);
+
+  // Diverse people representation with explicit diversity
+  const diversePeople = [
+    // Young adults (18-30)
+    'a young Black woman with natural hair',
+    'a young Asian man with modern style',
+    'a young Latinx person with vibrant energy',
+    'a young white woman with artistic flair',
+    'a young Middle Eastern person with cultural elements',
+    'a young Indigenous person with traditional touches',
+    'a young South Asian woman with elegant styling',
+    'a young mixed-race person with unique features',
+    'a young person with a disability using adaptive equipment',
+    'a young plus-size person with confidence',
+    'a young person with visible tattoos and piercings',
+    'a young person with a wheelchair',
+    
+    // Adults (30-50)
+    'a mature Black man with distinguished presence',
+    'a mature Asian woman with sophisticated style',
+    'a mature Latinx person with warm expression',
+    'a mature white man with creative energy',
+    'a mature Middle Eastern woman with cultural grace',
+    'a mature Indigenous man with traditional wisdom',
+    'a mature South Asian man with professional elegance',
+    'a mature mixed-race person with diverse heritage',
+    'a mature person with a prosthetic limb',
+    'a mature plus-size person with style',
+    'a mature person with a service animal',
+    'a mature person with a hearing aid',
+    
+    // Older adults (50+)
+    'an older Black woman with silver hair and wisdom',
+    'an older Asian man with distinguished features',
+    'an older Latinx person with life experience',
+    'an older white woman with artistic maturity',
+    'an older Middle Eastern person with cultural depth',
+    'an older Indigenous person with traditional knowledge',
+    'an older South Asian woman with graceful aging',
+    'an older mixed-race person with rich heritage',
+    'an older person with a cane or walker',
+    'an older person with glasses and wisdom',
+    'an older person with gray hair and experience',
+    'an older person with a mobility device'
+  ];
+
+  // Character archetypes based on mood and genre with diverse people
+  const characterArchetypes = {
+    // Energetic/Party moods
+    'energetic': [
+      'a dynamic dancer in motion with flowing fabric',
+      'a vibrant street performer with colorful costume',
+      'an energetic DJ with glowing equipment',
+      'a breakdancer in mid-move with urban backdrop',
+      'a festival-goer with neon accessories'
+    ],
+    'party': [
+      'a party host with celebratory accessories',
+      'a nightclub performer with dramatic lighting',
+      'a festival attendee with face paint and glitter',
+      'a DJ with turntables and neon effects',
+      'a dancer with flowing, colorful outfit'
+    ],
+    
+    // Chill/Relaxed moods
+    'chill': [
+      'a contemplative person in a peaceful setting',
+      'a yoga practitioner in serene environment',
+      'a coffee shop patron with warm lighting',
+      'a beach-goer with sunset backdrop',
+      'a reader in a cozy, book-filled space'
+    ],
+    'relaxed': [
+      'a meditative person with soft lighting',
+      'a nature walker in forest setting',
+      'a tea drinker in minimalist space',
+      'a stargazer with night sky background',
+      'a hammock lounger with tropical vibes'
+    ],
+    
+    // Emotional/Romantic moods
+    'emotional': [
+      'a thoughtful person with expressive gestures',
+      'an artist painting with emotional intensity',
+      'a musician playing with passion',
+      'a poet writing with candlelight',
+      'a person in rain with umbrella'
+    ],
+    'romantic': [
+      'a diverse couple silhouetted against sunset',
+      'a person with flowers and soft lighting',
+      'a dancer in elegant pose',
+      'a person with vintage romantic styling',
+      'a person with candlelit dinner setting',
+      'a same-sex couple in romantic embrace',
+      'an interracial couple holding hands',
+      'a couple of different ages showing love',
+      'a couple with different cultural backgrounds'
+    ],
+    
+    // Dark/Mysterious moods
+    'dark': [
+      'a mysterious person in shadow',
+      'a gothic character with dramatic styling',
+      'a night wanderer with city lights',
+      'a person with mask and cloak',
+      'a character with moonlit silhouette'
+    ],
+    'mysterious': [
+      'a person with hidden face and intriguing pose',
+      'a character with vintage detective styling',
+      'a person with fog and atmospheric lighting',
+      'a person with vintage camera and film noir style',
+      'a character with steampunk accessories'
+    ]
+  };
+
+  // Topic-based character suggestions
+  const topicCharacters = {
+    // Music-related topics
+    'music': [
+      'a musician with instrument',
+      'a conductor with baton',
+      'a singer with microphone',
+      'a record collector with vinyl',
+      'a music producer with studio equipment'
+    ],
+    'dance': [
+      'a ballet dancer in elegant pose',
+      'a hip-hop dancer with urban style',
+      'a contemporary dancer with flowing movement',
+      'a salsa dancer with vibrant costume',
+      'a breakdancer with street art backdrop'
+    ],
+    'night': [
+      'a night owl with city skyline',
+      'a stargazer with telescope',
+      'a nightclub patron with neon lights',
+      'a midnight walker with street lamps',
+      'a figure with fireflies and moon'
+    ],
+    'summer': [
+      'a beach-goer with tropical vibes',
+      'a festival attendee with flower crown',
+      'a surfer with ocean waves',
+      'a picnic-goer with sunny meadow',
+      'a traveler with vintage suitcase'
+    ],
+    'winter': [
+      'a figure with cozy winter clothing',
+      'a skier with mountain backdrop',
+      'a person with hot cocoa and fireplace',
+      'a figure with snow and warm lighting',
+      'a character with vintage winter accessories'
+    ],
+    'travel': [
+      'a backpacker with world map',
+      'a photographer with vintage camera',
+      'a wanderer with compass and journal',
+      'a traveler with passport and tickets',
+      'a figure with suitcase and adventure gear'
+    ],
+    'love': [
+      'a figure with heart-shaped elements',
+      'a couple with romantic setting',
+      'a person with flowers and soft lighting',
+      'a figure with vintage love letter',
+      'a character with wedding or celebration elements'
+    ],
+    'dream': [
+      'a figure with cloud and star elements',
+      'a dreamer with surreal background',
+      'a person with floating elements',
+      'a figure with ethereal lighting',
+      'a character with fantasy accessories'
+    ]
+  };
+
+  // Cultural and diverse character representations
+  const culturalCharacters = [
+    'a diverse character with traditional cultural elements',
+    'a figure representing global music traditions',
+    'a character with cultural festival styling',
+    'a person with traditional dance costume',
+    'a figure with cultural instrument and styling'
+  ];
+
+  // Select character based on mood
+  let selectedCharacters = characterArchetypes[mood] || characterArchetypes['energetic'];
+  
+  // Add genre-specific characters (30% chance)
+  if (Math.random() < 0.3) {
+    const genreCharacters = [
+      'urban street artist', 'breakdancer', 'graffiti artist', 'DJ with turntables',
+      'smooth vocalist', 'elegant performer', 'sophisticated musician', 'soul singer',
+      'energetic performer', 'colorful pop star', 'festival attendee', 'vibrant dancer',
+      'electric guitarist', 'rock performer', 'concert goer', 'band member',
+      'cyberpunk DJ', 'neon dancer', 'futuristic performer', 'digital artist',
+      'artistic musician', 'coffee shop performer', 'vintage style artist', 'creative individual',
+      'salsa dancer', 'latin performer', 'festival dancer', 'cultural musician',
+      'saxophone player', 'jazz club performer', 'sophisticated musician', 'vintage jazz artist',
+      'guitar player', 'country singer', 'rural performer', 'folk musician',
+      'orchestra conductor', 'classical musician', 'elegant performer', 'concert pianist'
+    ];
+    selectedCharacters = [...selectedCharacters, ...genreCharacters];
+  }
+
+  // Combine diverse people with character archetypes for inclusive representation
+  const combinedCharacters = [];
+  
+  // 60% chance to use diverse people with character archetypes
+  if (Math.random() < 0.6) {
+    const randomPerson = diversePeople[Math.floor(Math.random() * diversePeople.length)];
+    const randomArchetype = selectedCharacters[Math.floor(Math.random() * selectedCharacters.length)];
+    combinedCharacters.push(`${randomPerson} as ${randomArchetype}`);
+  }
+  
+  // 40% chance to use just character archetypes (for variety)
+  combinedCharacters.push(...selectedCharacters);
+  
+  // Add topic-based characters if title contains relevant keywords
+  const topicKeywords = Object.keys(topicCharacters);
+  for (const keyword of topicKeywords) {
+    if (titleWords.some(word => word.includes(keyword)) || 
+        trackArtists.some(artist => artist && artist.includes(keyword))) {
+      combinedCharacters.push(...topicCharacters[keyword]);
+    }
+  }
+
+  // Add cultural diversity (20% chance)
+  if (Math.random() < 0.2) {
+    combinedCharacters.push(...culturalCharacters);
+  }
+
+  // Select a random character from combined options
+  const selectedCharacter = combinedCharacters[Math.floor(Math.random() * combinedCharacters.length)];
+
+  // Character styling options
+  const characterStyles = [
+    'in artistic illustration style',
+    'with stylized, modern art approach',
+    'in contemporary digital art style',
+    'with vintage poster art styling',
+    'in abstract artistic representation',
+    'with watercolor painting effect',
+    'in minimalist line art style',
+    'with collage and mixed media approach'
+  ];
+
+  // Environmental and situational diversity
+  const environments = [
+    'in a vibrant urban setting',
+    'against a dreamy sunset backdrop',
+    'in a cozy indoor atmosphere',
+    'with a cosmic space background',
+    'in a vintage retro environment',
+    'with a nature-inspired setting',
+    'in a futuristic digital landscape',
+    'with a cultural festival atmosphere'
+  ];
+
+  const selectedStyle = characterStyles[Math.floor(Math.random() * characterStyles.length)];
+  const selectedEnvironment = environments[Math.floor(Math.random() * environments.length)];
+
+  // 50% chance to include environment
+  const includeEnvironment = Math.random() < 0.5;
+  
+  if (includeEnvironment) {
+    return `Include ${selectedCharacter} ${selectedStyle} ${selectedEnvironment}.`;
+  } else {
+    return `Include ${selectedCharacter} ${selectedStyle}.`;
+  }
+}
+
 function generatePlaylistCoverPrompt(
   title: string, 
   mood: string, 
   genre: string, 
   audience: string, 
-  userPrompt?: string
+  userPrompt?: string,
+  tracks: any[] = []
 ): string {
   // Enhanced art styles for maximum diversity
   const artStyles = [
@@ -693,6 +994,20 @@ function generatePlaylistCoverPrompt(
     'country': ['rustic', 'natural', 'warm', 'earthy'],
     'classical': ['elegant', 'sophisticated', 'timeless', 'refined']
   };
+
+  // Genre-specific character enhancements
+  const genreCharacterMap = {
+    'hip hop': ['urban street artist', 'breakdancer', 'graffiti artist', 'DJ with turntables'],
+    'r&b': ['smooth vocalist', 'elegant performer', 'sophisticated musician', 'soul singer'],
+    'pop': ['energetic performer', 'colorful pop star', 'festival attendee', 'vibrant dancer'],
+    'rock': ['electric guitarist', 'rock performer', 'concert goer', 'band member'],
+    'electronic': ['cyberpunk DJ', 'neon dancer', 'futuristic performer', 'digital artist'],
+    'indie': ['artistic musician', 'coffee shop performer', 'vintage style artist', 'creative individual'],
+    'latin': ['salsa dancer', 'latin performer', 'festival dancer', 'cultural musician'],
+    'jazz': ['saxophone player', 'jazz club performer', 'sophisticated musician', 'vintage jazz artist'],
+    'country': ['guitar player', 'country singer', 'rural performer', 'folk musician'],
+    'classical': ['orchestra conductor', 'classical musician', 'elegant performer', 'concert pianist']
+  };
   
   // Intelligent style selection based on mood and genre
   let selectedStyles = artStyles;
@@ -761,8 +1076,8 @@ function generatePlaylistCoverPrompt(
     console.log(`   Typography: ${diversityStats.typographyStylesUsed.size} unique styles used`);
   }
   
-  // Build the dynamic prompt with enhanced diversity
-  let basePrompt = `A highly stylized, diverse artistic illustration that captures the essence of the music. Dynamic and visually striking, inspired by contemporary and traditional art movements from around the world. Include the playlist title and description in bold, artistic typography integrated into the design. Abstract and artistic design only, no human figures or faces.`;
+  // Build the dynamic prompt with enhanced diversity including characters
+  let basePrompt = `A highly stylized, diverse artistic illustration that captures the essence of the music. Dynamic and visually striking, inspired by contemporary and traditional art movements from around the world. Include the playlist title and description in bold, artistic typography integrated into the design.`;
   
   // Add playlist context
   if (title && title !== 'Untitled Playlist') {
@@ -778,6 +1093,12 @@ function generatePlaylistCoverPrompt(
   
   // Add randomized elements with enhanced descriptions
   basePrompt += ` Art style: ${randomFocus}. Color palette: ${randomColors}. Typography: ${randomTypography}.`;
+  
+  // Add character and topic-based diversity elements
+  const characterElements = generateCharacterAndTopicElements(title, mood, genre, tracks);
+  if (characterElements) {
+    basePrompt += ` ${characterElements}`;
+  }
   
   // Add cultural and artistic diversity hints
   const diversityHints = [
@@ -1028,7 +1349,7 @@ export async function generatePlaylistTitleAndDescription(
   articleData?: { title: string; link: string }
 ): Promise<{ title: string; description: string }> {
   try {
-    console.log("Generating modern Spotify-style title and description for playlist");
+    console.log("Generating marketing-optimized title and description for playlist");
     console.log("Article data:", articleData);
     
     // Extract artist and track info for context
@@ -1037,6 +1358,13 @@ export async function generatePlaylistTitleAndDescription(
       return `"${track.name}" by ${artistName}`;
     }).join(', ');
 
+    // Extract genres and popular artists for SEO
+    const genres = [...new Set(tracks.map(track => track.genres || []).flat())].slice(0, 3);
+    const popularArtists = tracks
+      .map(track => track.artists?.[0]?.name)
+      .filter(Boolean)
+      .slice(0, 3);
+
     // Determine if this is an article-based playlist
     const isArticleBased = articleData && articleData.title;
     
@@ -1044,71 +1372,79 @@ export async function generatePlaylistTitleAndDescription(
     let userContent = "";
 
     if (isArticleBased) {
-      // Special handling for article-based playlists using the same format rules as regular playlists
-      systemContent = `You are a modern music curator who creates Spotify-style playlist titles and descriptions that feel authentic and engaging, inspired by music news articles.
+      // Special handling for article-based playlists with marketing focus
+      systemContent = `You are a professional music marketing expert who creates viral, shareable playlist titles and descriptions optimized for social media, streaming platforms, and SEO.
 
 CRITICAL: Detect the language of the user's original prompt and respond in the SAME LANGUAGE throughout.
 
-TITLE GUIDELINES - MANDATORY 3-4 word format:
-- REQUIRED: Exactly 3-4 words only
-- REQUIRED: First word must be ALL UPPERCASE
-- REQUIRED: Remaining words lowercase (except proper nouns)
-- EXAMPLES: "GOLDEN hour vibes", "MIDNIGHT drive feels", "SUMMER nostalgia hits"
-- NO EXCEPTIONS: Never exceed 4 words
-- NO COLONS, NO SUBTITLES, NO LONG PHRASES
-- Connect to the article theme but maintain playlist-friendly style
+TITLE GUIDELINES - MARKETING OPTIMIZED:
+- Create titles that are SHAREABLE and CLICKABLE (2-5 words max)
+- Use POWER WORDS that create urgency, emotion, or curiosity
+- Include trending music terms when relevant (vibes, feels, hits, energy, mood)
+- Make titles that people want to screenshot and share
+- Examples: "Viral TikTok Hits", "Late Night Feels", "Summer Anthems 2024", "Chill Vibes Only", "Throwback Energy"
+- Avoid generic terms - be specific and memorable
+- Consider seasonal relevance and trending topics
 
-DESCRIPTION GUIDELINES - Write 10-20 words that are:
-- Engaging and modern, contemporary playlist style
-- Playful, casual, and emotionally resonant
-- Include 1-2 relevant emojis when appropriate
-- Use cultural lingo and conversational language
-- Invite listeners to press play
-- Avoid overexplaining - keep it cool and inviting
-- Examples: "for when you need to feel everything at once 💔", "your new obsession starts here ✨", "vibes for late night drives and deep thoughts 🌙"
-- Can subtly reference the article theme but focus on the musical experience
+DESCRIPTION GUIDELINES - SEO & SHARING OPTIMIZED:
+- Write 15-25 words that are highly shareable and searchable
+- Include relevant genre keywords naturally
+- Use emotional triggers and social proof language
+- Include trending hashtags and emojis strategically
+- Make it sound like a must-listen playlist
+- Examples: "The ultimate collection of indie hits that'll have you hitting repeat all day 🎵 #IndieVibes #NewMusic", "Perfect for your morning commute - these tracks will start your day right ☀️ #MorningPlaylist #GoodVibes"
+- Include call-to-action language that encourages sharing
+- Reference popular artists or trending sounds when relevant
 
-Make both title and description feel authentic, not like corporate marketing copy.
+Make both title and description feel like they belong on a trending playlist that everyone wants to discover and share.
 
-Return as JSON: {"title": "WORD word word", "description": "engaging description ✨"}`;
+Return as JSON: {"title": "trending title", "description": "shareable description with hashtags and emojis"}`;
       
       userContent = `Inspired by the music news article: "${articleData.title}"
 
 Original prompt: "${prompt}"
 Selected tracks: ${trackInfo}
+${genres.length > 0 ? `Genres: ${genres.join(', ')}` : ''}
+${popularArtists.length > 0 ? `Featured artists: ${popularArtists.join(', ')}` : ''}
 
-Create a short, catchy title (3-4 words with UPPERCASE first word) and engaging description (10-20 words) that follows modern playlist style while subtly connecting to the article theme.`;
+Create a viral-worthy title and shareable description that will make people want to discover and share this playlist. Focus on trending music culture and social media appeal.`;
     } else {
-      // Regular playlist generation
-      systemContent = `You are a modern music curator who creates modern playlist titles and descriptions that feel authentic and engaging.
+      // Regular playlist generation with marketing focus
+      systemContent = `You are a professional music marketing expert who creates viral, shareable playlist titles and descriptions optimized for social media, streaming platforms, and SEO.
 
 CRITICAL: Detect the language of the user's original prompt and respond in the SAME LANGUAGE throughout.
 
-TITLE GUIDELINES - MANDATORY 3-4 word format:
-- REQUIRED: Exactly 3-4 words only
-- REQUIRED: First word must be ALL UPPERCASE
-- REQUIRED: Remaining words lowercase (except proper nouns)
-- EXAMPLES: "GOLDEN hour vibes", "MIDNIGHT drive feels", "SUMMER nostalgia hits"
-- NO EXCEPTIONS: Never exceed 4 words
-- NO COLONS, NO SUBTITLES, NO LONG PHRASES
+TITLE GUIDELINES - MARKETING OPTIMIZED:
+- Create titles that are SHAREABLE and CLICKABLE (2-5 words max)
+- Use POWER WORDS that create urgency, emotion, or curiosity
+- Include trending music terms when relevant (vibes, feels, hits, energy, mood, anthems, bangers)
+- Make titles that people want to screenshot and share
+- Examples: "Viral TikTok Hits", "Late Night Feels", "Summer Anthems 2024", "Chill Vibes Only", "Throwback Energy", "Indie Gold", "Hip-Hop Heat"
+- Avoid generic terms - be specific and memorable
+- Consider seasonal relevance and trending topics
+- Use alliteration and catchy phrases when possible
 
-DESCRIPTION GUIDELINES - Write 10-20 words that are:
-- Engaging and modern, contemporary playlist style
-- Playful, casual, and emotionally resonant
-- Include 1-2 relevant emojis when appropriate
-- Use cultural lingo and conversational language
-- Invite listeners to press play
-- Avoid overexplaining - keep it cool and inviting
-- Examples: "for when you need to feel everything at once 💔", "your new obsession starts here ✨", "vibes for late night drives and deep thoughts 🌙"
+DESCRIPTION GUIDELINES - SEO & SHARING OPTIMIZED:
+- Write 15-25 words that are highly shareable and searchable
+- Include relevant genre keywords naturally
+- Use emotional triggers and social proof language
+- Include trending hashtags and emojis strategically (2-3 max)
+- Make it sound like a must-listen playlist
+- Examples: "The ultimate collection of indie hits that'll have you hitting repeat all day 🎵 #IndieVibes #NewMusic", "Perfect for your morning commute - these tracks will start your day right ☀️ #MorningPlaylist #GoodVibes", "Your new obsession starts here - these bangers are pure fire 🔥 #TrendingMusic #ViralHits"
+- Include call-to-action language that encourages sharing
+- Reference popular artists or trending sounds when relevant
+- Use words like "ultimate", "essential", "must-listen", "viral", "trending"
 
-Make both title and description feel authentic, not like corporate marketing copy.
+Make both title and description feel like they belong on a trending playlist that everyone wants to discover and share.
 
-Return as JSON: {"title": "WORD word word", "description": "engaging description ✨"}`;
+Return as JSON: {"title": "trending title", "description": "shareable description with hashtags and emojis"}`;
       
       userContent = `Original prompt: "${prompt}"
 Selected tracks: ${trackInfo}
+${genres.length > 0 ? `Genres: ${genres.join(', ')}` : ''}
+${popularArtists.length > 0 ? `Featured artists: ${popularArtists.join(', ')}` : ''}
 
-Create a short, catchy title (3-4 words with UPPERCASE first word) and engaging description (10-20 words) that follows modern playlist style.`;
+Create a viral-worthy title and shareable description that will make people want to discover and share this playlist. Focus on trending music culture, social media appeal, and SEO optimization.`;
     }
 
     const response = await openai.chat.completions.create({
@@ -1136,33 +1472,19 @@ Create a short, catchy title (3-4 words with UPPERCASE first word) and engaging 
         throw new Error("Response missing title or description");
       }
       
-      // Add signature to the end of the description (keep in English as it's a brand name)
-      const signature = "\n\nMade with love by songfuse.app";
       return {
         title: result.title,
-        description: result.description + signature
+        description: result.description
       };
     } catch (jsonError) {
       console.error("Error parsing JSON from OpenAI response:", jsonError);
-      // Fallback values if parsing fails - use modern playlist style
-      const signature = "\n\nMade with love by songfuse.app";
-      const fallbackDescription = `vibes for when you need the perfect soundtrack ✨`;
-      
-      return {
-        title: "curated",
-        description: fallbackDescription + signature
-      };
+      // Return empty if parsing fails
+      return { title: "", description: "" };
     }
   } catch (error) {
     console.error("Error generating playlist title and description:", error);
-    // Fallback values if API call fails
-    const signature = "\n\nMade with love by songfuse.app";
-    const fallbackDescription = `A curated collection of tracks based on "${prompt}". Featuring artists from different genres and eras, this playlist offers a diverse musical experience that captures the essence of your request.`;
-    
-    return {
-      title: `Playlist inspired by ${prompt.substring(0, 20)}...`,
-      description: fallbackDescription + signature
-    };
+    // Return empty if API call fails
+    return { title: "", description: "" };
   }
 }
 

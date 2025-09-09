@@ -18,6 +18,10 @@ interface SmartLinkData {
     title: string;
     description?: string;
     coverImageUrl?: string;
+    thumbnailImageUrl?: string;
+    smallImageUrl?: string;
+    socialImageUrl?: string;
+    ogImageUrl?: string;
     articleTitle?: string;
     articleLink?: string;
   };
@@ -63,6 +67,8 @@ interface SmartLinkPublicProps {
 }
 
 export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLinkPublicProps) {
+  console.log('SmartLinkPublic component rendered with props:', { shareId, playlistId, title });
+  
   const params = useParams();
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -91,8 +97,25 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
     ? [`/api/playlists/${finalPlaylistId}/smart-link`]
     : [`/api/smart-links/${finalShareId}`];
   
-  const { data: smartLinkResponse, isLoading } = useQuery({
+  const { data: smartLinkResponse, isLoading, error } = useQuery({
     queryKey,
+    queryFn: async () => {
+      console.log(`Making API request to: ${queryKey[0]}`);
+      const response = await fetch(queryKey[0] as string, {
+        credentials: "include",
+        headers: {
+          "Accept": "application/json"
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('API Response received:', data);
+      return data;
+    },
     enabled: !!(finalShareId || finalPlaylistId) && !preloadData,
     initialData: preloadData?.smartLink || preloadData?.playlist ? {
       playlist: preloadData.playlist,
@@ -100,28 +123,60 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
     } : undefined,
     refetchInterval: 15000, // Refetch every 15 seconds to get updated view counts
     refetchIntervalInBackground: true, // Continue refetching even when tab is not active
+    retry: 3, // Retry failed requests 3 times
+    retryDelay: 1000, // Wait 1 second between retries
+    staleTime: 30000, // Consider data stale after 30 seconds
+    gcTime: 300000, // Keep in cache for 5 minutes
+  });
+
+  // Extract smart link data from response
+  // Handle both nested structure (with .smartLink) and flat structure
+  const smartLink = smartLinkResponse?.smartLink || smartLinkResponse;
+  
+  // If we have a nested structure, also extract the promoted track
+  const promotedTrack = smartLinkResponse?.promotedTrack || smartLink?.promotedTrack;
+  
+  // If we have a promoted track at the root level, add it to the smartLink object
+  const finalSmartLink = promotedTrack && !smartLink?.promotedTrack 
+    ? { ...smartLink, promotedTrack }
+    : smartLink;
+  
+  // Debug the response structure
+  console.log('API Response structure:', {
+    hasSmartLink: !!smartLinkResponse?.smartLink,
+    hasExists: 'exists' in (smartLinkResponse || {}),
+    responseKeys: smartLinkResponse ? Object.keys(smartLinkResponse) : 'no response',
+    finalSmartLinkKeys: finalSmartLink ? Object.keys(finalSmartLink) : 'no finalSmartLink'
   });
 
   // Optimistically update view count when component mounts (simulating a new visit)
   useEffect(() => {
-    if (smartLink && !preloadData) {
+    if (finalSmartLink && !preloadData) {
       // This simulates the view count increment that happens on the server
       // The actual increment happens on the server, but we show it immediately in the UI
-      console.log(`Smart link "${smartLink.title}" viewed - view count: ${smartLink.views || 0}`);
+      console.log(`Smart link "${finalSmartLink.title}" viewed - view count: ${finalSmartLink.views || 0}`);
     }
-  }, [smartLink, preloadData]);
+  }, [finalSmartLink, preloadData]);
 
-  // Extract smart link data from response
-  const smartLink = smartLinkResponse?.smartLink || smartLinkResponse;
+  // Debug logging
+  console.log('SmartLinkPublic Debug:', {
+    smartLinkResponse,
+    finalSmartLink,
+    finalPlaylistId,
+    finalShareId,
+    queryKey,
+    isLoading,
+    error
+  });
 
   // Extract tracks directly from smart link data - no need for separate playlist query
-  const tracks = smartLink?.playlist?.tracks || smartLink?.tracks || [];
+  const tracks = finalSmartLink?.playlist?.tracks || finalSmartLink?.tracks || [];
 
   // URL correction logic: if we have playlist data and are using the new format,
   // check if the URL matches the correct title slug
   React.useEffect(() => {
-    if (smartLink && finalPlaylistId && smartLink.playlist?.title) {
-      const correctSlug = createSlug(smartLink.playlist.title);
+    if (finalSmartLink && finalPlaylistId && finalSmartLink.playlist?.title) {
+      const correctSlug = createSlug(finalSmartLink.playlist.title);
       const currentTitle = params.title;
       
       // If the current title doesn't match the correct slug, redirect
@@ -130,7 +185,7 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
         window.history.replaceState(null, '', correctUrl);
       }
     }
-  }, [smartLink, finalPlaylistId, params.title]);
+  }, [finalSmartLink, finalPlaylistId, params.title]);
 
   if (isLoading) {
     return (
@@ -138,12 +193,17 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white">Loading smart link...</p>
+          {error && (
+            <div className="mt-4 p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
+              <p className="text-red-400 text-sm">Error: {error.message}</p>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  if (!smartLink) {
+  if (!finalSmartLink) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -152,6 +212,12 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
           <p className="text-muted-foreground mb-6">
             This smart link doesn't exist or may have been removed.
           </p>
+          <div className="text-xs text-gray-500 mb-4">
+            <p>Debug info:</p>
+            <p>PlaylistId: {finalPlaylistId}</p>
+            <p>ShareId: {finalShareId}</p>
+            <p>Response: {JSON.stringify(smartLinkResponse, null, 2)}</p>
+          </div>
           <Button asChild>
             <a href="/">Discover Playlists</a>
           </Button>
@@ -160,25 +226,26 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
     );
   }
 
-  const coverImage = smartLink.customCoverImage || smartLink.playlist?.coverImageUrl;
+  const coverImage = finalSmartLink.customCoverImage || finalSmartLink.playlist?.coverImageUrl;
   
   // Function to get optimized thumbnail for smaller displays
   const getOptimizedCoverImage = (url: string, size: 'sm' | 'md' | 'lg' = 'md') => {
     if (!url) return url;
     
-    const sizeMap = {
-      sm: 128,   // For small album covers
-      md: 256,   // For medium displays
-      lg: 512    // For large displays (hero)
-    };
-    
-    const targetSize = sizeMap[size];
-    
-    // For Supabase images, use thumbnail service for smaller sizes
-    if (url.includes('supabase.co') && url.includes('playlist-covers') && (size === 'sm' || size === 'md')) {
-      return `/api/thumbnail?url=${encodeURIComponent(url)}&size=${targetSize}`;
+    // Use stored resized URLs from the playlist data if available
+    if (finalSmartLink?.playlist) {
+      const playlist = finalSmartLink.playlist;
+      
+      if (size === 'sm' && playlist.thumbnailImageUrl) {
+        return playlist.thumbnailImageUrl; // 64x64
+      } else if (size === 'md' && playlist.smallImageUrl) {
+        return playlist.smallImageUrl; // 150x150
+      } else if (size === 'lg' && playlist.socialImageUrl) {
+        return playlist.socialImageUrl; // 400x400
+      }
     }
     
+    // Fallback to original URL if no resized version is available
     return url;
   };
 
@@ -221,16 +288,16 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
 
               {/* Content */}
               <div className="flex-1 text-center md:text-left">
-                <h1 className="text-4xl font-bold mb-3">{smartLink.title}</h1>
-                {smartLink.description && (
-                  <p className="mb-4 text-[#ffffff] text-[16px] leading-relaxed max-w-2xl">{smartLink.description}</p>
+                <h1 className="text-4xl font-bold mb-3">{finalSmartLink.title}</h1>
+                {finalSmartLink.description && (
+                  <p className="mb-4 text-[#ffffff] text-[16px] leading-relaxed max-w-2xl">{finalSmartLink.description}</p>
                 )}
                 
                 {/* Metrics */}
                 <div className="flex items-center justify-center md:justify-start space-x-4 text-sm text-[#ffffff] mb-6">
                   <div className="flex items-center space-x-1">
                     <User className="h-4 w-4" />
-                    <span>{smartLink.views || 0} views</span>
+                    <span>{finalSmartLink.views || 0} views</span>
                   </div>
                   <Separator orientation="vertical" className="h-4" />
                   <div className="flex items-center space-x-1">
@@ -240,11 +307,11 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
                 </div>
 
                 {/* Spotify Follow Button */}
-                {smartLink.playlist?.spotifyId && (
+                {finalSmartLink.playlist?.spotifyId && (
                   <div className="flex justify-center md:justify-start">
                     <SpotifyFollowButton 
-                      spotifyId={smartLink.playlist.spotifyId}
-                      playlistTitle={smartLink.title}
+                      spotifyId={finalSmartLink.playlist.spotifyId}
+                      playlistTitle={finalSmartLink.title}
                       variant="large"
                     />
                   </div>
@@ -253,19 +320,19 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
             </div>
 
             {/* Spotify Playlist Embed */}
-            {smartLink.playlist?.spotifyId && (
+            {finalSmartLink.playlist?.spotifyId && (
               <div className="mt-8 mb-8">
                 <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
                   <div className="flex justify-center">
                     <iframe
-                      src={`https://open.spotify.com/embed/playlist/${smartLink.playlist.spotifyId}?utm_source=generator&theme=0`}
+                      src={`https://open.spotify.com/embed/playlist/${finalSmartLink.playlist.spotifyId}?utm_source=generator&theme=0`}
                       width="100%"
                       height="380"
                       frameBorder="0"
                       allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                       loading="lazy"
                       className="rounded-xl max-w-2xl"
-                      title={`Spotify playlist: ${smartLink.title}`}
+                      title={`Spotify playlist: ${finalSmartLink.title}`}
                     />
                   </div>
                 </div>
@@ -273,15 +340,15 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
             )}
 
             {/* Featured Track Hero Section */}
-            {smartLink.promotedTrack && (
+            {finalSmartLink.promotedTrack && (
               <div className="mt-8 relative">
                 {/* Hero Background with Album Cover */}
                 <div className="relative bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-red-900/20 dark:from-purple-900/40 dark:via-pink-900/40 dark:to-red-900/40 rounded-2xl overflow-hidden border border-purple-500/20 shadow-2xl">
                   {/* Blurred Album Cover Background */}
-                  {smartLink.promotedTrack.albumCover && (
+                  {finalSmartLink.promotedTrack.albumCover && (
                     <div className="absolute inset-0">
                       <img
-                        src={smartLink.promotedTrack.albumCover}
+                        src={finalSmartLink.promotedTrack.albumCover}
                         alt="Background"
                         className="w-full h-full object-cover blur-3xl scale-110"
                       />
@@ -301,11 +368,11 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
                     <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-6">
                       {/* Large Album Cover */}
                       <div className="relative group mx-auto md:mx-0">
-                        {smartLink.promotedTrack.albumCover ? (
+                        {finalSmartLink.promotedTrack.albumCover ? (
                           <div className="relative">
                             <img
-                              src={getOptimizedCoverImage(smartLink.promotedTrack.albumCover, 'sm')}
-                              alt={smartLink.promotedTrack.album || 'Album cover'}
+                              src={getOptimizedCoverImage(finalSmartLink.promotedTrack.albumCover, 'sm')}
+                              alt={finalSmartLink.promotedTrack.album || 'Album cover'}
                               className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-xl object-cover shadow-2xl transition-all duration-300"
                             />
                             {/* Glow effect */}
@@ -321,14 +388,14 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
                       {/* Track Info */}
                       <div className="flex-1 min-w-0 text-center md:text-left">
                         <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1 leading-tight line-clamp-2">
-                          {smartLink.promotedTrack.title}
+                          {finalSmartLink.promotedTrack.title}
                         </h2>
                         <p className="text-base sm:text-lg text-purple-200 mb-1 font-medium">
-                          {smartLink.promotedTrack.artist}
+                          {finalSmartLink.promotedTrack.artist}
                         </p>
-                        {smartLink.promotedTrack.album && (
+                        {finalSmartLink.promotedTrack.album && (
                           <p className="text-xs sm:text-sm text-white/60 mb-3">
-                            {smartLink.promotedTrack.album}
+                            {finalSmartLink.promotedTrack.album}
                           </p>
                         )}
                         
@@ -339,98 +406,98 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
                             <div className="flex items-center justify-center space-x-2 flex-wrap gap-1">
                               {/* Spotify */}
                               <button
-                                onClick={smartLink.promotedTrack.spotifyId ? () => window.open(`https://open.spotify.com/track/${smartLink.promotedTrack.spotifyId}`, '_blank') : undefined}
+                                onClick={finalSmartLink.promotedTrack.spotifyId ? () => window.open(`https://open.spotify.com/track/${finalSmartLink.promotedTrack.spotifyId}`, '_blank') : undefined}
                                 className={`group relative w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center shadow-lg ${
-                                  smartLink.promotedTrack.spotifyId 
+                                  finalSmartLink.promotedTrack.spotifyId 
                                     ? 'bg-[#1DB954] hover:bg-[#1ed760] hover:shadow-xl hover:scale-110 cursor-pointer' 
                                     : 'bg-gray-600 cursor-not-allowed opacity-50'
                                 }`}
-                                title={smartLink.promotedTrack.spotifyId ? "Listen on Spotify - Stream this track now" : "Not available on Spotify"}
-                                disabled={!smartLink.promotedTrack.spotifyId}
+                                title={finalSmartLink.promotedTrack.spotifyId ? "Listen on Spotify - Stream this track now" : "Not available on Spotify"}
+                                disabled={!finalSmartLink.promotedTrack.spotifyId}
                               >
                                 <FaSpotify className="w-5 h-5 text-white" />
                               </button>
                               
                               {/* YouTube */}
                               <button
-                                onClick={smartLink.promotedTrack.youtubeId ? () => window.open(`https://www.youtube.com/watch?v=${smartLink.promotedTrack.youtubeId}`, '_blank') : undefined}
+                                onClick={finalSmartLink.promotedTrack.youtubeId ? () => window.open(`https://www.youtube.com/watch?v=${finalSmartLink.promotedTrack.youtubeId}`, '_blank') : undefined}
                                 className={`group relative w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center shadow-lg ${
-                                  smartLink.promotedTrack.youtubeId 
+                                  finalSmartLink.promotedTrack.youtubeId 
                                     ? 'bg-[#FF0000] hover:bg-[#ff1a1a] hover:shadow-xl hover:scale-110 cursor-pointer' 
                                     : 'bg-gray-600 cursor-not-allowed opacity-50'
                                 }`}
-                                title={smartLink.promotedTrack.youtubeId ? "Watch on YouTube - Free with ads" : "Not available on YouTube"}
-                                disabled={!smartLink.promotedTrack.youtubeId}
+                                title={finalSmartLink.promotedTrack.youtubeId ? "Watch on YouTube - Free with ads" : "Not available on YouTube"}
+                                disabled={!finalSmartLink.promotedTrack.youtubeId}
                               >
                                 <FaYoutube className="w-5 h-5 text-white" />
                               </button>
 
                               {/* Apple Music */}
                               <button
-                                onClick={smartLink.promotedTrack.appleMusicId ? () => window.open(`https://music.apple.com/song/${smartLink.promotedTrack.appleMusicId}`, '_blank') : undefined}
+                                onClick={finalSmartLink.promotedTrack.appleMusicId ? () => window.open(`https://music.apple.com/song/${finalSmartLink.promotedTrack.appleMusicId}`, '_blank') : undefined}
                                 className={`group relative w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center shadow-lg ${
-                                  smartLink.promotedTrack.appleMusicId 
+                                  finalSmartLink.promotedTrack.appleMusicId 
                                     ? 'bg-gradient-to-br from-[#fa57c1] to-[#9900ff] hover:from-[#fb6cc7] hover:to-[#a814ff] hover:shadow-xl hover:scale-110 cursor-pointer' 
                                     : 'bg-gray-600 cursor-not-allowed opacity-50'
                                 }`}
-                                title={smartLink.promotedTrack.appleMusicId ? "Listen on Apple Music - High quality audio" : "Not available on Apple Music"}
-                                disabled={!smartLink.promotedTrack.appleMusicId}
+                                title={finalSmartLink.promotedTrack.appleMusicId ? "Listen on Apple Music - High quality audio" : "Not available on Apple Music"}
+                                disabled={!finalSmartLink.promotedTrack.appleMusicId}
                               >
                                 <FaApple className="w-5 h-5 text-white" />
                               </button>
 
                               {/* Deezer */}
                               <button
-                                onClick={smartLink.promotedTrack.deezerId ? () => window.open(`https://www.deezer.com/track/${smartLink.promotedTrack.deezerId}`, '_blank') : undefined}
+                                onClick={finalSmartLink.promotedTrack.deezerId ? () => window.open(`https://www.deezer.com/track/${finalSmartLink.promotedTrack.deezerId}`, '_blank') : undefined}
                                 className={`group relative w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center shadow-lg ${
-                                  smartLink.promotedTrack.deezerId 
+                                  finalSmartLink.promotedTrack.deezerId 
                                     ? 'bg-[#FF5500] hover:bg-[#ff6619] hover:shadow-xl hover:scale-110 cursor-pointer' 
                                     : 'bg-gray-600 cursor-not-allowed opacity-50'
                                 }`}
-                                title={smartLink.promotedTrack.deezerId ? "Stream on Deezer - Discover new music" : "Not available on Deezer"}
-                                disabled={!smartLink.promotedTrack.deezerId}
+                                title={finalSmartLink.promotedTrack.deezerId ? "Stream on Deezer - Discover new music" : "Not available on Deezer"}
+                                disabled={!finalSmartLink.promotedTrack.deezerId}
                               >
                                 <Music className="w-5 h-5 text-white" />
                               </button>
 
                               {/* Amazon Music */}
                               <button
-                                onClick={smartLink.promotedTrack.amazonMusicId ? () => window.open(`https://music.amazon.com/albums/${smartLink.promotedTrack.amazonMusicId}`, '_blank') : undefined}
+                                onClick={finalSmartLink.promotedTrack.amazonMusicId ? () => window.open(`https://music.amazon.com/albums/${finalSmartLink.promotedTrack.amazonMusicId}`, '_blank') : undefined}
                                 className={`group relative w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center shadow-lg ${
-                                  smartLink.promotedTrack.amazonMusicId 
+                                  finalSmartLink.promotedTrack.amazonMusicId 
                                     ? 'bg-[#00A8E1] hover:bg-[#1ab8f1] hover:shadow-xl hover:scale-110 cursor-pointer' 
                                     : 'bg-gray-600 cursor-not-allowed opacity-50'
                                 }`}
-                                title={smartLink.promotedTrack.amazonMusicId ? "Play on Amazon Music - Prime member benefits" : "Not available on Amazon Music"}
-                                disabled={!smartLink.promotedTrack.amazonMusicId}
+                                title={finalSmartLink.promotedTrack.amazonMusicId ? "Play on Amazon Music - Prime member benefits" : "Not available on Amazon Music"}
+                                disabled={!finalSmartLink.promotedTrack.amazonMusicId}
                               >
                                 <FaAmazon className="w-5 h-5 text-white" />
                               </button>
 
                               {/* Tidal */}
                               <button
-                                onClick={smartLink.promotedTrack.tidalId ? () => window.open(`https://tidal.com/browse/track/${smartLink.promotedTrack.tidalId}`, '_blank') : undefined}
+                                onClick={finalSmartLink.promotedTrack.tidalId ? () => window.open(`https://tidal.com/browse/track/${finalSmartLink.promotedTrack.tidalId}`, '_blank') : undefined}
                                 className={`group relative w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center shadow-lg ${
-                                  smartLink.promotedTrack.tidalId 
+                                  finalSmartLink.promotedTrack.tidalId 
                                     ? 'bg-[#000000] hover:bg-[#1a1a1a] hover:shadow-xl hover:scale-110 cursor-pointer' 
                                     : 'bg-gray-600 cursor-not-allowed opacity-50'
                                 }`}
-                                title={smartLink.promotedTrack.tidalId ? "Stream on Tidal - Hi-Fi lossless quality" : "Not available on Tidal"}
-                                disabled={!smartLink.promotedTrack.tidalId}
+                                title={finalSmartLink.promotedTrack.tidalId ? "Stream on Tidal - Hi-Fi lossless quality" : "Not available on Tidal"}
+                                disabled={!finalSmartLink.promotedTrack.tidalId}
                               >
                                 <SiTidal className="w-5 h-5 text-white" />
                               </button>
 
                               {/* Pandora */}
                               <button
-                                onClick={smartLink.promotedTrack.pandoraId ? () => window.open(`https://www.pandora.com/track/${smartLink.promotedTrack.pandoraId}`, '_blank') : undefined}
+                                onClick={finalSmartLink.promotedTrack.pandoraId ? () => window.open(`https://www.pandora.com/track/${finalSmartLink.promotedTrack.pandoraId}`, '_blank') : undefined}
                                 className={`group relative w-10 h-10 rounded-full transition-all duration-300 flex items-center justify-center shadow-lg ${
-                                  smartLink.promotedTrack.pandoraId 
+                                  finalSmartLink.promotedTrack.pandoraId 
                                     ? 'bg-[#005483] hover:bg-[#0066a0] hover:shadow-xl hover:scale-110 cursor-pointer' 
                                     : 'bg-gray-600 cursor-not-allowed opacity-50'
                                 }`}
-                                title={smartLink.promotedTrack.pandoraId ? "Listen on Pandora - Personalized radio" : "Not available on Pandora"}
-                                disabled={!smartLink.promotedTrack.pandoraId}
+                                title={finalSmartLink.promotedTrack.pandoraId ? "Listen on Pandora - Personalized radio" : "Not available on Pandora"}
+                                disabled={!finalSmartLink.promotedTrack.pandoraId}
                               >
                                 <SiPandora className="w-5 h-5 text-white" />
                               </button>
@@ -446,14 +513,14 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
             )}
 
             {/* YouTube Video Embed - Below Featured Track */}
-            {smartLink.promotedTrack?.youtubeId && (
+            {finalSmartLink.promotedTrack?.youtubeId && (
               <div className="mt-8">
                 <Card className="bg-black/40 border-white/10 overflow-hidden">
                   <CardContent className="p-0">
                     <div className="aspect-video">
                       <iframe
-                        src={`https://www.youtube.com/embed/${smartLink.promotedTrack.youtubeId}?rel=0&modestbranding=1&fs=1&cc_load_policy=0&iv_load_policy=3&autohide=1`}
-                        title={`${smartLink.promotedTrack.title} - ${smartLink.promotedTrack.artist}`}
+                        src={`https://www.youtube.com/embed/${finalSmartLink.promotedTrack.youtubeId}?rel=0&modestbranding=1&fs=1&cc_load_policy=0&iv_load_policy=3&autohide=1`}
+                        title={`${finalSmartLink.promotedTrack.title} - ${finalSmartLink.promotedTrack.artist}`}
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                         allowFullScreen
@@ -464,7 +531,7 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
                       <div className="flex items-center space-x-2">
                         <FaYoutube className="w-5 h-5 text-red-500" />
                         <span className="text-sm text-white/80">
-                          Watch "{smartLink.promotedTrack.title}" on YouTube
+                          Watch "{finalSmartLink.promotedTrack.title}" on YouTube
                         </span>
                       </div>
                     </div>
@@ -479,12 +546,12 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
 
             
             {/* Article Reference */}
-            {smartLink.playlist?.articleTitle && smartLink.playlist?.articleLink && (
+            {finalSmartLink.playlist?.articleTitle && finalSmartLink.playlist?.articleLink && (
               <div className="mt-3 dark:bg-gray-800/80 p-2 mb-6 bg-black/30 rounded-[4px]">
                 <p className="text-xs text-[#ffffffcc]">
                   <span className="font-semibold">Inspired by article: </span>
-                  <a href={smartLink.playlist.articleLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
-                    {smartLink.playlist.articleTitle}
+                  <a href={finalSmartLink.playlist.articleLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                    {finalSmartLink.playlist.articleTitle}
                   </a>
                 </p>
               </div>
@@ -497,7 +564,7 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
               <div className="mb-4">
                 <h3 className="text-lg font-semibold text-white/90 mb-2">Complete Playlist</h3>
                 <p className="text-sm text-white/60">
-                  {smartLink.promotedTrack ? 
+                  {finalSmartLink.promotedTrack ? 
                     `${tracks?.length || 0} tracks • Featured track highlighted` : 
                     `${tracks?.length || 0} tracks`
                   }
@@ -506,7 +573,7 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
               
               {tracks && tracks.length > 0 ? (
                 tracks.map((track: Track, index: number) => {
-                  const isPromotedTrack = smartLink.promotedTrack && track.id === smartLink.promotedTrack.id;
+                  const isPromotedTrack = finalSmartLink.promotedTrack && track.id === finalSmartLink.promotedTrack.id;
                   return (
                     <div key={track.id} className={`flex items-center p-3 rounded-lg transition-all duration-300 group border ${
                       isPromotedTrack 
@@ -567,7 +634,7 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
           </div>
 
           {/* Action Bar */}
-          {smartLink.playlist?.spotifyId && (
+          {finalSmartLink.playlist?.spotifyId && (
             <div className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
               <div className="max-w-4xl mx-auto px-4 py-6">
                 <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
@@ -576,8 +643,8 @@ export default function SmartLinkPublic({ shareId, playlistId, title }: SmartLin
                     <p className="text-white/70 text-sm">Follow it on Spotify to keep it in your library</p>
                   </div>
                   <SpotifyFollowButton 
-                    spotifyId={smartLink.playlist.spotifyId}
-                    playlistTitle={smartLink.title}
+                    spotifyId={finalSmartLink.playlist.spotifyId}
+                    playlistTitle={finalSmartLink.title}
                     variant="default"
                   />
                 </div>

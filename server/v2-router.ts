@@ -9,12 +9,21 @@ const v2Router = express.Router();
 
 // Add middleware to ensure we're always returning JSON
 v2Router.use((req, res, next) => {
+  console.log("=== V2 ROUTER MIDDLEWARE CALLED ===");
+  console.log("V2 Router - Request method:", req.method);
+  console.log("V2 Router - Request URL:", req.url);
   res.setHeader('Content-Type', 'application/json');
   next();
 });
 
 // Add playlist-related endpoints
-v2Router.post('/playlist/save', savePlaylist);
+v2Router.post('/playlist/save', (req, res) => {
+  console.log("=== V2 ROUTER - PLAYLIST SAVE ENDPOINT CALLED ===");
+  console.log("V2 Router - Request method:", req.method);
+  console.log("V2 Router - Request URL:", req.url);
+  console.log("V2 Router - Request body:", req.body);
+  savePlaylist(req, res);
+});
 v2Router.get('/playlist/:idOrSpotifyId', getPlaylistDetails);
 
 // Smart Links endpoints

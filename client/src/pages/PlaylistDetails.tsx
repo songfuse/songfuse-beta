@@ -82,6 +82,61 @@ const PlaylistDetails = ({ id, slug }: PlaylistDetailsProps) => {
     }
   }, [lastUpdatedPlaylistId, id, user?.id, queryClient, refetch, resetNotification]);
 
+  // Auto-save to Spotify when playlist loads (if not already saved)
+  useEffect(() => {
+    const autoSaveToSpotify = async () => {
+      if (!playlist || !user) return;
+      
+      // Check if playlist is already saved to Spotify
+      if (playlist.spotifyId || playlist.spotifyUrl) {
+        console.log('Playlist already saved to Spotify, skipping auto-save');
+        return;
+      }
+      
+      // Check if playlist has tracks before attempting to save
+      if (!playlist.tracks || playlist.tracks.length === 0) {
+        console.log('Playlist has no tracks, skipping auto-save');
+        return;
+      }
+      
+      console.log('Auto-saving playlist to Spotify:', playlist.title, `(${playlist.tracks.length} tracks)`);
+      
+      try {
+        // Call the auto-save endpoint
+        const response = await apiRequest('POST', '/api/playlist/auto-save-to-spotify', {
+          playlistId: playlist.id,
+          userId: user.id
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Auto-save response:', result);
+          
+          // Only show toast and refresh if it was actually saved (not already saved)
+          if (!result.alreadySaved) {
+            // Refresh the playlist data to show the new Spotify info
+            queryClient.invalidateQueries({ queryKey: [`/api/playlist/${id}`, user?.id] });
+            refetch();
+            
+            // Force a page refresh to ensure the UI updates properly and hides the "Save to Spotify" button
+            window.location.reload();
+            
+            toast({
+              title: "Playlist saved to Spotify",
+              description: "Your playlist has been automatically saved to Spotify and is ready to share!",
+            });
+          }
+        } else {
+          console.error('Failed to auto-save to Spotify:', await response.text());
+        }
+      } catch (error) {
+        console.error('Error auto-saving to Spotify:', error);
+      }
+    };
+    
+    autoSaveToSpotify();
+  }, [playlist, user, id, queryClient, refetch, toast]);
+
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col bg-background">

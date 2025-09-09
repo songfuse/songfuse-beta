@@ -1,3 +1,6 @@
+// Ensure environment variables are loaded
+import 'dotenv/config';
+
 import { sql } from "drizzle-orm";
 import { OpenAI } from "openai";
 import { db } from "../db";

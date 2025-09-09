@@ -676,12 +676,13 @@ const SongItem = ({
                 "typeof duration": typeof track.duration
               });
               
-              // Normalize duration - if it's in seconds (< 30000), convert to milliseconds
+              // Normalize duration - duration_ms should already be in milliseconds from the server
               let normalizedDuration = 0;
               if (track.duration_ms && track.duration_ms > 0) {
-                normalizedDuration = track.duration_ms < 30000 ? track.duration_ms * 1000 : track.duration_ms;
+                normalizedDuration = track.duration_ms;
               } else if (track.duration && track.duration > 0) {
-                normalizedDuration = track.duration < 30000 ? track.duration * 1000 : track.duration;
+                // If duration is provided but duration_ms is not, assume duration is in milliseconds
+                normalizedDuration = track.duration;
               }
               
               console.log("Normalized duration:", normalizedDuration);

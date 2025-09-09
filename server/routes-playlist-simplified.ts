@@ -5,6 +5,7 @@ import { tracks, trackPlatformIds } from '../shared/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { storage } from './storage';
 import { updatePlaylistCover, syncSessionCoverWithPlaylist } from './services/playlistCoverService';
+import { SpotifyServiceAccount } from './services/spotifyServiceAccount';
 
 // Add a type declaration for our extended request object
 interface Request extends ExpressRequest {
@@ -204,7 +205,7 @@ export async function getPlaylistDetails(req: Request, res: Response) {
         name: track.title || 'Unknown Track',
         artists: [{ name: 'Artist' }],
         album: { name: 'Album', images: [] },
-        duration_ms: track.duration || 0,
+        duration_ms: track.duration ? track.duration * 1000 : 0,
         preview_url: track.previewUrl || null,
         explicit: track.explicit || false,
         popularity: track.popularity || 0,
@@ -245,7 +246,10 @@ export async function getPlaylistDetails(req: Request, res: Response) {
  */
 export async function savePlaylist(req: Request, res: Response) {
   try {
+    console.log("=== V2 API - SAVE PLAYLIST ENDPOINT CALLED ===");
     console.log("V2 API - Save playlist request received:", req.body);
+    console.log("V2 API - Request method:", req.method);
+    console.log("V2 API - Request URL:", req.url);
     
     // Force JSON response instead of HTML
     res.setHeader('Content-Type', 'application/json');
@@ -488,28 +492,151 @@ export async function savePlaylist(req: Request, res: Response) {
       }
     }
     
-    // 🎯 AUTOMATIC COVER IMAGE FILESYSTEM SAVE
-    // Apply our proven solution to ensure cover images are saved to filesystem
+    // 🎯 PROCESS COVER IMAGE WITH OPTIMIZATION
+    // Process the cover image to create resized versions for different use cases
     if (playlist && playlist.coverImageUrl) {
-      console.log(`🔧 AUTO-FIX: Ensuring cover image is saved to filesystem for playlist ${playlist.id}`);
+      console.log(`🔧 PROCESSING: Creating optimized cover image versions for playlist ${playlist.id}`);
       try {
-        const { downloadImageFromServerUrl } = await import('./services/downloadFromServer');
-        const result = await downloadImageFromServerUrl(playlist.coverImageUrl, playlist.id);
+        const { storeAiGeneratedCoverWithOptimization } = await import('./services/supabaseStorage');
+        const optimizedImages = await storeAiGeneratedCoverWithOptimization(playlist.coverImageUrl, playlist.id);
         
-        if (result.success) {
-          console.log(`✅ AUTO-FIX: Successfully saved cover image to filesystem: ${result.savedPath}`);
-        } else {
-          console.warn(`⚠️ AUTO-FIX: Failed to save cover image to filesystem: ${result.error}`);
-        }
-      } catch (autoFixError) {
-        console.error(`❌ AUTO-FIX: Error during automatic cover image save:`, autoFixError);
+        console.log(`✅ PROCESSING: Successfully created optimized cover image versions`);
+        console.log(`- Original: ${optimizedImages.original}`);
+        console.log(`- Thumbnail: ${optimizedImages.thumbnail}`);
+        console.log(`- Small: ${optimizedImages.small}`);
+        console.log(`- Social: ${optimizedImages.social}`);
+        console.log(`- Open Graph: ${optimizedImages.openGraph}`);
+        
+        // Update the playlist object with the social image URL for Spotify upload
+        playlist.socialImageUrl = optimizedImages.social;
+        
+      } catch (error) {
+        console.error(`❌ PROCESSING: Error creating optimized cover image versions:`, error);
+        // Don't fail the whole operation if cover processing fails
       }
     }
     
+    // Handle Spotify saving if not skipped
+    let spotifyId = null;
+    let spotifyUrl = null;
+    let savedToSpotify = false;
+    
+    console.log("V2 API - Spotify save check - skipSpotify:", req.body.skipSpotify, "type:", typeof req.body.skipSpotify);
+    
+    if (!req.body.skipSpotify) {
+      try {
+        console.log("V2 API - Attempting to save to Spotify, skipSpotify:", req.body.skipSpotify);
+        console.log("V2 API - Using static import for SpotifyServiceAccount");
+        
+        // Initialize SpotifyServiceAccount if not already initialized
+        SpotifyServiceAccount.initialize();
+        
+        const isConfigured = SpotifyServiceAccount.isConfigured();
+        console.log("V2 API - SpotifyServiceAccount.isConfigured():", isConfigured);
+        
+        if (isConfigured) {
+          console.log("V2 API - Creating playlist on Songfuse Spotify account");
+          
+          // Get service account access token
+          const serviceAccessToken = await SpotifyServiceAccount.getAccessToken();
+          
+          // Import spotify functions
+          const spotify = await import('./spotify-fixed');
+          
+          // Truncate description to comply with Spotify limits (300 characters max)
+          const truncatedDesc = description ? description.substring(0, 300) : "";
+          
+          // Create playlist on Songfuse Spotify account
+          const spotifyPlaylist = await spotify.createPlaylist(
+            serviceAccessToken,
+            "songfuse-service", // Use service account
+            title,
+            truncatedDesc,
+            isPublic !== false
+          );
+          
+          console.log("V2 API - Playlist created successfully on Songfuse account:", spotifyPlaylist.id);
+          
+          // Set values for response
+          spotifyId = spotifyPlaylist.id;
+          spotifyUrl = spotifyPlaylist.external_urls.spotify;
+          savedToSpotify = true;
+
+          // Add tracks to the playlist
+          const trackUris = trackList.map(track => {
+            // Ensure track ID is valid and in correct format
+            if (!track.id) {
+              console.error("Missing track ID:", track);
+              return null;
+            }
+            // Clean up ID to ensure proper format
+            const cleanId = track.id.replace('spotify:track:', '');
+            return `spotify:track:${cleanId}`;
+          }).filter(uri => uri !== null) as string[];
+          
+          await spotify.addTracksToPlaylist(serviceAccessToken, spotifyPlaylist.id, trackUris);
+          console.log("V2 API - Added tracks to Songfuse playlist");
+
+          // Upload custom cover if provided
+          if (playlist.coverImageUrl) {
+            try {
+              console.log("V2 API - Preparing to upload cover image for Songfuse playlist:", spotifyPlaylist.id);
+              
+              // Use the social image URL (400x400) for Spotify upload if available
+              let imageUrlToUse = playlist.coverImageUrl;
+              if (playlist.socialImageUrl) {
+                imageUrlToUse = playlist.socialImageUrl;
+                console.log("V2 API - Using social image URL (400x400) for Spotify upload:", imageUrlToUse);
+              } else {
+                console.log("V2 API - Using original cover image URL for Spotify upload:", imageUrlToUse);
+              }
+              
+              // Convert image URL to base64 for Spotify API
+              const { imageUrlToBase64 } = await import('./services/utils');
+              const base64Image = await imageUrlToBase64(imageUrlToUse);
+              
+              if (base64Image) {
+                // Add a short delay to ensure the playlist is fully created before uploading image
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                await spotify.uploadPlaylistCoverImage(serviceAccessToken, spotifyPlaylist.id, base64Image);
+                console.log("V2 API - Successfully uploaded cover image to Songfuse playlist");
+              }
+            } catch (imgError) {
+              console.error("V2 API - Failed to upload cover image:", imgError);
+              // Don't fail the whole request if image upload fails
+            }
+          }
+          
+          // Update the playlist in database with Spotify information
+          await playlistStorage.updatePlaylist(playlist.id, {
+            spotifyId,
+            spotifyUrl
+          });
+          
+        } else {
+          console.log("V2 API - Songfuse Spotify service account not configured, skipping Spotify save");
+        }
+      } catch (spotifyError) {
+        console.error("V2 API - Songfuse Spotify API error:", spotifyError);
+        // Continue with database-only approach
+        console.log("V2 API - Songfuse Spotify save failed, continuing with database-only save");
+      }
+    } else {
+      console.log("V2 API - Skipping Spotify save due to skipSpotify=true");
+    }
+
     return res.json({ 
       success: true, 
       message: 'Playlist saved successfully', 
-      playlist 
+      playlist: {
+        ...playlist,
+        spotifyId,
+        spotifyUrl
+      },
+      spotifyId,
+      spotifyUrl,
+      savedToSpotify
     });
   } catch (error) {
     console.error("Error saving playlist:", error);

@@ -151,7 +151,7 @@ const PlaylistEditor = ({
               console.log(`Loaded ${data.tracks.length} tracks from database for playlist ${databasePlaylistId}`);
               
               // Convert the track format to match what our component expects
-              const formattedTracks = data.tracks.map(t => {
+              const formattedTracks = data.tracks.map((t: any) => {
                 console.log("Raw track data from API:", JSON.stringify(t, null, 2));
                 
                 // Parse artists_json if it's a string
@@ -201,7 +201,7 @@ const PlaylistEditor = ({
                     ...t,  // Keep all original properties
                     dbId: t.id,  // Make sure we have the dbId
                     title: t.name || t.title,  // Ensure title is set
-                    artist: artists.map(a => a.name).join(", "),  // Add artist string
+                    artist: artists.map((a: any) => a.name).join(", "),  // Add artist string
                     album_cover_image: t.album.images[0].url,  // Add direct album_cover_image reference
                     album_name: t.album.name  // Add direct album_name reference
                   };
@@ -214,7 +214,7 @@ const PlaylistEditor = ({
                   name: t.name || t.title || "Unknown Track",
                   title: t.title || t.name || "Unknown Track", // Add title field for compatibility
                   artists: artists,
-                  artist: artists.map(a => a.name).join(", "), // Add artist field for compatibility
+                  artist: artists.map((a: any) => a.name).join(", "), // Add artist field for compatibility
                   album: albumInfo,
                   album_cover_image: t.album_cover_image || (albumInfo.images && albumInfo.images[0] ? albumInfo.images[0].url : ''), // Include raw field for easier access
                   album_name: t.album_name || (albumInfo ? albumInfo.name : "Unknown Album"), // Include raw field for easier access
@@ -298,24 +298,28 @@ const PlaylistEditor = ({
         hasCover: !!coverImageUrl
       });
       
-      // Save to database only, skip Spotify
+      // Save to database and automatically to Songfuse Spotify account
       const result = await savePlaylist(
         title, 
         description, 
         coverImageUrl, 
         tracks,
         isPublic,
-        true, // skipSpotify=true to save only to Songfuse DB
+        false, // skipSpotify=false to auto-save to Songfuse Spotify account
         databasePlaylistId, // Use existing ID if available
         articleData // Pass article data from context
       );
       
-      if (result && result.playlist && result.playlist.id) {
-        // For new v2 API format
+      if (result && (((result as any).playlist && (result as any).playlist.id) || result.id)) {
+        // Handle both v2 API format (result.playlist.id) and legacy format (result.id)
         setDatabaseSaved(true);
-        const playlistId = result.playlist.id;
+        const playlistId = (result as any).playlist?.id || result.id;
         setDatabasePlaylistId(playlistId);
         console.log("Playlist saved to Songfuse database:", playlistId);
+        
+        // Check if it was also saved to Spotify
+        const savedToSpotify = result.savedToSpotify || result.spotifyUrl;
+        console.log("Saved to Spotify:", savedToSpotify);
         
         // Notify the PlaylistUpdateContext
         notifyPlaylistCreated({
@@ -331,7 +335,9 @@ const PlaylistEditor = ({
         // Show success toast with link to playlist
         toast({
           title: "Playlist saved!",
-          description: "Your playlist has been saved successfully and is ready to view.",
+          description: savedToSpotify 
+            ? "Your playlist has been saved to Songfuse and Spotify." 
+            : "Your playlist has been saved to Songfuse.",
           variant: "default"
         });
         
@@ -341,34 +347,6 @@ const PlaylistEditor = ({
         // Reset the form and collapse the modal
         resetPlaylistState();
         
-      } else if (result && result.id) {
-        // For backward compatibility with older API format
-        setDatabaseSaved(true);
-        const playlistId = result.id;
-        setDatabasePlaylistId(playlistId);
-        console.log("Playlist saved to Songfuse database:", playlistId);
-        
-        notifyPlaylistCreated({
-          id: playlistId,
-          title: title,
-          description: description,
-          coverImage: coverImageUrl
-        });
-        
-        triggerSidebarRefresh();
-        
-        // Show success toast with link to playlist
-        toast({
-          title: "Playlist saved!",
-          description: "Your playlist has been saved successfully and is ready to view.",
-          variant: "default"
-        });
-        
-        // Redirect user to the playlist permalink
-        setLocation(`/playlist/${playlistId}`);
-        
-        // Reset the form and collapse the modal
-        resetPlaylistState();
         
       } else {
         console.error("Save failed with unexpected response format:", result);
@@ -410,7 +388,7 @@ const PlaylistEditor = ({
       tracks,
       showCoverPromptInput ? customCoverPrompt : undefined,
       undefined, // No improvePrompt
-      databasePlaylistId // Pass playlist ID if we have one
+      databasePlaylistId || undefined // Pass playlist ID if we have one
     );
     
     if (result) {
@@ -444,7 +422,7 @@ const PlaylistEditor = ({
       // Only update the cover image in the database without changing the tracks
       try {
         // If we already have a database ID, only update the cover image
-        if (databasePlaylistId) {
+        if (databasePlaylistId !== null) {
           // Use the new uploadCustomCover function that properly updates the database
           await uploadCustomCover(databasePlaylistId, result.coverImageUrl);
           
@@ -842,12 +820,7 @@ const PlaylistEditor = ({
     console.log("Saving playlist to Spotify with database ID:", databasePlaylistId);
 
     try {
-      // Append signature to description
-      const SIGNATURE = "\n\nMade with love by songfuse.app";
-      // Make sure we're not adding the signature twice
-      const finalDescription = description.endsWith(SIGNATURE) ? 
-        description : 
-        `${description}${SIGNATURE}`;
+      const finalDescription = description;
       
       // Save to database first, then try to save to Spotify
       // Pass the existing playlistId if we have one (from auto-save to database)
@@ -863,7 +836,7 @@ const PlaylistEditor = ({
       
       if (result) {
         // The v2 API returns result.playlist.id instead of result.id
-        const playlistId = result.playlist?.id || result.id;
+        const playlistId = (result as any).playlist?.id || result.id;
         
         if (playlistId) {
           console.log("Save successful, updating database ID:", playlistId);
@@ -871,8 +844,8 @@ const PlaylistEditor = ({
           setDatabaseSaved(true);
           
           // Use either structure depending on what the API returns
-          const savedToSpotify = result.savedToSpotify || result.playlist?.spotifyId;
-          const spotifyUrl = result.spotifyUrl || result.playlist?.spotifyUrl || '';
+          const savedToSpotify = result.savedToSpotify || (result as any).playlist?.spotifyId;
+          const spotifyUrl = result.spotifyUrl || (result as any).playlist?.spotifyUrl || '';
           
           // Automatically reset the playlist state
           resetPlaylistState();
@@ -912,12 +885,7 @@ const PlaylistEditor = ({
     setIsLocalImproving(true);
     
     if (!databasePlaylistId) {
-      // Append signature to description
-      const SIGNATURE = "\n\nMade with love by songfuse.app";
-      // Make sure we're not adding the signature twice
-      const finalDescription = description.endsWith(SIGNATURE) ? 
-        description : 
-        `${description}${SIGNATURE}`;
+      const finalDescription = description;
         
       // Save to database first if not already saved
       const result = await savePlaylist(title, finalDescription, coverImageUrl, tracks, isPublic, true, null);
@@ -1082,7 +1050,7 @@ const PlaylistEditor = ({
                               console.log(`Refreshed ${data.tracks.length} tracks from database`);
                               
                               // Convert the track format to match what our component expects
-                              const formattedTracks = data.tracks.map(t => {
+                              const formattedTracks = data.tracks.map((t: any) => {
                                 console.log("Raw track data from manual refresh:", JSON.stringify(t, null, 2));
                                 
                                 // Parse artists_json if it's a string
@@ -1132,7 +1100,7 @@ const PlaylistEditor = ({
                                     ...t,  // Keep all original properties
                                     dbId: t.id,  // Make sure we have the dbId
                                     title: t.name || t.title,  // Ensure title is set
-                                    artist: artists.map(a => a.name).join(", "),  // Add artist string
+                                    artist: artists.map((a: any) => a.name).join(", "),  // Add artist string
                                     album_cover_image: t.album.images[0].url,  // Add direct album_cover_image reference
                                     album_name: t.album.name  // Add direct album_name reference
                                   };
@@ -1145,7 +1113,7 @@ const PlaylistEditor = ({
                                   name: t.name || t.title || "Unknown Track",
                                   title: t.title || t.name || "Unknown Track", // Add title field for compatibility
                                   artists: artists,
-                                  artist: artists.map(a => a.name).join(", "), // Add artist field for compatibility
+                                  artist: artists.map((a: any) => a.name).join(", "), // Add artist field for compatibility
                                   album: albumInfo,
                                   album_cover_image: t.album_cover_image || (albumInfo.images && albumInfo.images[0] ? albumInfo.images[0].url : ''), // Include raw field for easier access
                                   album_name: t.album_name || (albumInfo ? albumInfo.name : "Unknown Album"), // Include raw field for easier access
@@ -1227,17 +1195,13 @@ const PlaylistEditor = ({
                   <Textarea
                     value={description}
                     onChange={(e) => {
-                      // Limit to 250 chars to leave room for "Made with love by songfuse.app"
-                      const newValue = e.target.value.slice(0, 250);
+                      const newValue = e.target.value;
                       setDescription(newValue);
                     }}
                     maxLength={250}
                     placeholder="Describe your playlist (max 250 characters)"
                     className="w-full dark:bg-gray-700/20 bg-white dark:border-gray-700 border-gray-300 rounded-md py-2 px-3 dark:text-white text-gray-800 dark:placeholder-gray-500 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#d02b31]/50 h-20"
                   />
-                  <p className="text-xs dark:text-gray-400 text-gray-600 mt-1 italic">
-                    "Made with love by songfuse.app" will be automatically added to the description
-                  </p>
                 </div>
 
                 <div className="flex items-center space-x-2 pt-1">
@@ -1501,9 +1465,9 @@ const PlaylistEditor = ({
                               track={track}
                               index={originalIndex}
                               sessionId={sessionId}
-                              isLoading={track.id && removingTrackId === track.id}
+                              isLoading={!!(track.id && removingTrackId === track.id)}
                               onRemove={async () => await handleRemoveSong(originalIndex)}
-                              onReplace={(newTrack) => handleReplaceSong(originalIndex, newTrack)}
+                              onReplace={(newTrack) => handleReplaceSong(originalIndex, newTrack as SpotifyTrack)}
                               allTracks={tracks}
                             />
                           </DraggableTrackItem>

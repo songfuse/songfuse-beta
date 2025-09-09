@@ -9,6 +9,6 @@ songfuse_part*
 *backup*
 
 # Environment variables
-.env
+# .env
 .env.local
 .env.*.local

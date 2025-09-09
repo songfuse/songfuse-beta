@@ -122,6 +122,11 @@ const PlaylistDetailsUpdated = ({
     });
   }, [localCoverImage, spotifyImageUrl, imageVersion, playlistId, articleTitle, articleLink, hasSmartLink]);
   
+  // Sync localSpotifyUrl with spotifyUrl prop changes
+  useEffect(() => {
+    setLocalSpotifyUrl(spotifyUrl);
+  }, [spotifyUrl]);
+  
   // Handle Spotify embed delayed loading
   useEffect(() => {
     // When Spotify URL changes (e.g., after export), hide the embed, then show it after a delay

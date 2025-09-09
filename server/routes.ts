@@ -3,6 +3,9 @@ declare global {
   var recentlyUsedTracks: Set<string>;
 }
 
+// Ensure environment variables are loaded
+import 'dotenv/config';
+
 import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -1303,8 +1306,106 @@ These changes will make your playlist more discoverable when people search for r
       let spotifyUrl = null;
       let spotifyId = null;
       
-      // Only try to save to Spotify if user has proper authentication and skipSpotify flag is not true
-      if (!skipSpotify && user.spotifyAccessToken && user.spotifyId) {
+      // Always try to save to Songfuse Spotify account (unless explicitly skipped)
+      if (!skipSpotify) {
+        try {
+          // Import SpotifyServiceAccount
+          const { SpotifyServiceAccount } = await import('./services/spotifyServiceAccount');
+          
+          if (SpotifyServiceAccount.isConfigured()) {
+            console.log("Creating playlist on Songfuse Spotify account");
+            
+            // Get service account access token
+            const serviceAccessToken = await SpotifyServiceAccount.getAccessToken();
+            
+            // Truncate description to comply with Spotify limits (300 characters max)
+            const truncatedDesc = description ? description.substring(0, 300) : "";
+            console.log("Creating playlist with description length:", truncatedDesc.length);
+            
+            // Create playlist on Songfuse Spotify account
+            spotifyPlaylist = await spotify.createPlaylist(
+              serviceAccessToken,
+              "songfuse-service", // Use service account
+              title,
+              truncatedDesc,
+              isPublic !== false
+            );
+            
+            console.log("Playlist created successfully on Songfuse account:", spotifyPlaylist.id);
+            
+            // Set values for response
+            spotifyId = spotifyPlaylist.id;
+            spotifyUrl = spotifyPlaylist.external_urls.spotify;
+
+            // Add tracks to the playlist
+            const trackUris = tracks.map(track => {
+              // Ensure track ID is valid and in correct format
+              if (!track.id) {
+                console.error("Missing track ID:", track);
+                return null;
+              }
+              // Clean up ID to ensure proper format
+              const cleanId = track.id.replace('spotify:track:', '');
+              return `spotify:track:${cleanId}`;
+            }).filter(uri => uri !== null) as string[];
+            
+            // Log the first few track URIs for debugging
+            console.log("Track URIs sample:", trackUris.slice(0, 3));
+            console.log(`Total track URIs: ${trackUris.length}`);
+            
+            await spotify.addTracksToPlaylist(serviceAccessToken, spotifyPlaylist.id, trackUris);
+            console.log("Added tracks to Songfuse playlist");
+
+            // Upload custom cover if provided
+            if (coverImageUrl) {
+              try {
+                console.log("Preparing to upload cover image for Songfuse playlist:", spotifyPlaylist.id);
+                
+                // Get the playlist data to access resized image URLs
+                const playlistData = await storage.getPlaylist(playlistId);
+                let imageUrlToUse = coverImageUrl;
+                
+                // Use the social image URL (400x400) for Spotify upload if available
+                if (playlistData?.socialImageUrl) {
+                  imageUrlToUse = playlistData.socialImageUrl;
+                  console.log("Using social image URL (400x400) for Spotify upload:", imageUrlToUse);
+                } else {
+                  console.log("Using original cover image URL for Spotify upload:", imageUrlToUse);
+                }
+                
+                // Convert image URL to base64 for Spotify API
+                const base64Image = await imageUrlToBase64(imageUrlToUse);
+                
+                if (!base64Image) {
+                  console.error("Failed to convert image to base64, skipping cover upload");
+                } else {
+                  console.log("Successfully converted image to base64, uploading to Spotify...");
+                  
+                  // Add a short delay to ensure the playlist is fully created before uploading image
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  
+                  await spotify.uploadPlaylistCoverImage(serviceAccessToken, spotifyPlaylist.id, base64Image);
+                  console.log("Successfully uploaded cover image to Songfuse playlist");
+                }
+              } catch (imgError) {
+                console.error("Failed to upload cover image:", imgError);
+                // Don't fail the whole request if image upload fails
+              }
+            }
+          } else {
+            console.log("Songfuse Spotify service account not configured, skipping Spotify save");
+          }
+        } catch (spotifyError) {
+          console.error("Songfuse Spotify API error:", spotifyError);
+          // Continue with database-only approach
+          console.log("Songfuse Spotify save failed, continuing with database-only save");
+        }
+      } else {
+        console.log("Skipping Spotify save due to skipSpotify=true");
+      }
+      
+      // Legacy: Only try to save to user's Spotify if user has proper authentication and skipSpotify flag is not true
+      if (!skipSpotify && user.spotifyAccessToken && user.spotifyId && !spotifyId) {
         try {
           console.log("Creating playlist on Spotify for user:", user.spotifyId);
           
