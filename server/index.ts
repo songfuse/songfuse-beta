@@ -10,7 +10,6 @@ import { imageVerificationMiddleware } from "./middlewares/imageVerification";
 import { addDirectDbRoutes } from "./direct-db-access"; // Add direct database access routes
 import { addSpotifyExportRoutes } from "./routes-spotify-export"; // Add Spotify export routes
 import { addDirectFinderRoutes } from "./direct-track-finder"; // Add simple track finding routes
-import { addTestRoutes } from "./test-routes"; // Add test routes for diagnostics
 import { addSimplifiedTracksEndpoint } from "./simplified-tracks"; // Add simplified tracks endpoint
 import { addJsonTestEndpoint } from "./guaranteed-json-endpoint"; // Add guaranteed JSON test endpoint
 import { addGptImageJsonEndpoint } from "./gpt-image-json-endpoint"; // Add guaranteed GPT Image JSON endpoint
@@ -1320,7 +1319,6 @@ app.use((req, res, next) => {
   // Smart link SSR middleware will be registered later before Vite setup
 
   addDirectFinderRoutes(app);
-  addTestRoutes(app); // Add test routes for diagnostic purposes
   addSimplifiedTracksEndpoint(app); // Add simplified tracks endpoint
   addJsonTestEndpoint(app); // Add guaranteed JSON test endpoint
   addGptImageJsonEndpoint(app); // Add guaranteed GPT Image JSON endpoint
