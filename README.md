@@ -208,3 +208,26 @@ Content-Type: application/json
 - Playlist themes and moods classification
 - Real-time playlist collaboration
 - Mobile app development
+
+
+## 🔒 Environment Setup
+
+### Required Environment Variables
+
+1. **Copy the environment template:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Fill in your actual values in `.env`:**
+   - Get your OpenAI API key from: https://platform.openai.com/api-keys
+   - Get your Spotify credentials from: https://developer.spotify.com/dashboard
+   - Get your Supabase credentials from your project dashboard
+
+3. **Never commit `.env` to git** - it contains sensitive information!
+
+### Available Environment Variables
+
+See `.env.example` for the complete list of required variables.
+
+

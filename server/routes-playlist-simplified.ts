@@ -528,6 +528,14 @@ export async function savePlaylist(req: Request, res: Response) {
         console.log("V2 API - Attempting to save to Spotify, skipSpotify:", req.body.skipSpotify);
         console.log("V2 API - Using static import for SpotifyServiceAccount");
         
+        // Set a flag to prevent duplicate saves - use a simple approach with existing fields
+        // We'll use the description field to mark that Spotify save is in progress
+        const originalDescription = playlist.description;
+        const spotifySavingFlag = `[SPOTIFY_SAVING_IN_PROGRESS_${Date.now()}]`;
+        await playlistStorage.updatePlaylist(playlist.id, {
+          description: spotifySavingFlag + (originalDescription || '')
+        });
+        
         // Initialize SpotifyServiceAccount if not already initialized
         SpotifyServiceAccount.initialize();
         
@@ -608,10 +616,11 @@ export async function savePlaylist(req: Request, res: Response) {
             }
           }
           
-          // Update the playlist in database with Spotify information
+          // Update the playlist in database with Spotify information and clean up the flag
           await playlistStorage.updatePlaylist(playlist.id, {
             spotifyId,
-            spotifyUrl
+            spotifyUrl,
+            description: originalDescription // Restore original description
           });
           
         } else {
@@ -619,6 +628,10 @@ export async function savePlaylist(req: Request, res: Response) {
         }
       } catch (spotifyError) {
         console.error("V2 API - Songfuse Spotify API error:", spotifyError);
+        // Clean up the flag in case of error
+        await playlistStorage.updatePlaylist(playlist.id, {
+          description: originalDescription // Restore original description
+        });
         // Continue with database-only approach
         console.log("V2 API - Songfuse Spotify save failed, continuing with database-only save");
       }

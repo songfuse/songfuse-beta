@@ -29,7 +29,7 @@ console.log(`https://accounts.spotify.com/authorize?` + new URLSearchParams({
   client_id: CLIENT_ID,
   response_type: 'code',
   redirect_uri: REDIRECT_URI,
-  scope: 'playlist-modify-public playlist-modify-private user-read-private user-read-email',
+  scope: 'playlist-modify-public playlist-modify-private user-read-private user-read-email ugc-image-upload',
   show_dialog: 'true'
 }));
 console.log('');

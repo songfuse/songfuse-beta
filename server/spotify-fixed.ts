@@ -631,16 +631,14 @@ export async function uploadPlaylistCoverImage(
     // Add a brief delay before uploading (might help with Spotify API reliability)
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Convert base64 string to Buffer for proper binary upload
-    const imageBuffer = Buffer.from(base64Data, 'base64');
-    
+    // Send the base64 string directly (not binary data)
     const response = await fetch(`${API_BASE_URL}/playlists/${playlistId}/images`, {
       method: "PUT",
       headers: {
         "Content-Type": "image/jpeg", // This is required by Spotify
         "Authorization": `Bearer ${accessToken}`
       },
-      body: imageBuffer // Send as Buffer (binary data)
+      body: base64Data // Send as base64 string directly
     });
 
     // Check for success or handle specific error cases

@@ -34,7 +34,7 @@ import { eq } from "drizzle-orm";
 // Test image route removed
 
 // Import the v2 router with fixed API endpoints
-import v2Router from './v2-router';
+import v2Router from './v2-router-fixed';
 
 // Initialize Spotify service account
 import { SpotifyServiceAccount } from './services/spotifyServiceAccount';
@@ -4417,6 +4417,153 @@ Please create a playlist that captures the themes, mood, and energy of this news
     }
   });
 
+  // Test endpoint for image conversion
+  app.post("/api/test-image-conversion", async (req: Request, res: Response) => {
+    try {
+      const { url } = req.body;
+      if (!url) {
+        return res.status(400).json({ error: "URL is required" });
+      }
+
+      console.log("Testing image conversion for URL:", url);
+      
+      // Test the image conversion function
+      const { imageUrlToBase64 } = await import('./services/imageUtils');
+      const base64Image = await imageUrlToBase64(url);
+      
+      res.json({
+        success: true,
+        originalUrl: url,
+        base64Length: base64Image.length,
+        base64Preview: base64Image.substring(0, 100) + "...",
+        message: "Image conversion successful"
+      });
+    } catch (error) {
+      console.error("Image conversion test error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Unknown error",
+        success: false
+      });
+    }
+  });
+
+  // Test endpoint to check what token the server is using
+  app.get("/api/test-server-token", async (req: Request, res: Response) => {
+    try {
+      const { SpotifyServiceAccount } = await import('./services/spotifyServiceAccount');
+      const status = SpotifyServiceAccount.getStatus();
+      
+      // Try to get the actual token
+      let actualToken = null;
+      try {
+        actualToken = await SpotifyServiceAccount.getAccessToken();
+      } catch (error) {
+        console.error("Error getting token:", error);
+      }
+      
+      res.json({
+        success: true,
+        status: status,
+        tokenLength: actualToken?.length || 0,
+        tokenPreview: actualToken ? actualToken.substring(0, 20) + "..." : "No token",
+        envTokenLength: process.env.SPOTIFY_SERVICE_ACCESS_TOKEN?.length || 0,
+        envTokenPreview: process.env.SPOTIFY_SERVICE_ACCESS_TOKEN ? process.env.SPOTIFY_SERVICE_ACCESS_TOKEN.substring(0, 20) + "..." : "No env token"
+      });
+    } catch (error) {
+      console.error("Token test error:", error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : "Unknown error",
+        success: false
+      });
+    }
+  });
+
+  // Upload cover image to existing Spotify playlist
+  app.post("/api/playlist/:id/upload-cover-to-spotify", async (req: Request, res: Response) => {
+    try {
+      const playlistId = parseInt(req.params.id);
+      const { userId } = req.body;
+      
+      if (!playlistId || !userId) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "playlistId and userId are required" 
+        });
+      }
+
+      console.log(`Uploading cover to Spotify for playlist ${playlistId}`);
+
+      // Get the playlist from database
+      const playlist = await storage.getPlaylist(playlistId);
+      if (!playlist) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Playlist not found" 
+        });
+      }
+
+      // Check if playlist has a Spotify ID
+      if (!playlist.spotifyId) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Playlist is not saved to Spotify yet" 
+        });
+      }
+
+      // Check if playlist has a cover image
+      if (!playlist.coverImageUrl && !playlist.coverImage) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Playlist has no cover image to upload" 
+        });
+      }
+
+      // Check if Spotify service account is configured
+      if (!SpotifyServiceAccount.isConfigured()) {
+        return res.status(500).json({ 
+          success: false, 
+          message: "Spotify service account not configured" 
+        });
+      }
+
+      // Get service account access token
+      const serviceAccessToken = await SpotifyServiceAccount.getAccessToken();
+      
+      // Convert image URL to base64 for Spotify API
+      const { imageUrlToBase64 } = await import('./services/imageUtils');
+      const coverImageUrl = playlist.coverImage || playlist.coverImageUrl;
+      const base64Image = await imageUrlToBase64(coverImageUrl);
+      
+      if (!base64Image) {
+        return res.status(500).json({ 
+          success: false, 
+          message: "Failed to convert cover image to base64" 
+        });
+      }
+
+      // Upload cover image to Spotify
+      const spotify = await import('./spotify-fixed');
+      await spotify.uploadPlaylistCoverImage(serviceAccessToken, playlist.spotifyId, base64Image);
+      
+      console.log(`Successfully uploaded cover image to Spotify playlist ${playlist.spotifyId}`);
+      
+      res.json({
+        success: true,
+        message: "Cover image successfully uploaded to Spotify",
+        spotifyId: playlist.spotifyId,
+        spotifyUrl: playlist.spotifyUrl
+      });
+      
+    } catch (error) {
+      console.error("Error uploading cover to Spotify:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to upload cover image to Spotify",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Auto-save playlist to Spotify endpoint (only saves once)
   app.post("/api/playlist/auto-save-to-spotify", async (req: Request, res: Response) => {
     try {
@@ -4431,8 +4578,9 @@ Please create a playlist that captures the themes, mood, and energy of this news
 
       console.log(`Auto-saving playlist ${playlistId} to Spotify for user ${userId}`);
 
-      // Get the playlist from database
-      const playlist = await storage.getPlaylist(playlistId);
+      // Get the playlist from database using the same storage as V2 endpoint
+      const { playlistStorage } = await import('./playlist_storage_simplified');
+      const playlist = await playlistStorage.getPlaylist(playlistId);
       if (!playlist) {
         return res.status(404).json({ 
           success: false, 
@@ -4452,9 +4600,19 @@ Please create a playlist that captures the themes, mood, and energy of this news
         });
       }
 
-      // Get playlist tracks using the correct method for the current schema
-      const { storage: newStorage } = await import('./storage_simplified');
-      const playlistTracks = await newStorage.getPlaylistTracks(playlistId);
+      // Check if Spotify save is currently in progress (prevent duplicate saves)
+      if (playlist.description && playlist.description.includes('[SPOTIFY_SAVING_IN_PROGRESS_')) {
+        console.log(`Playlist ${playlistId} is currently being saved to Spotify, skipping auto-save`);
+        return res.json({
+          success: true,
+          message: "Playlist is currently being saved to Spotify",
+          alreadySaved: false,
+          inProgress: true
+        });
+      }
+
+      // Get playlist tracks using the same storage as V2 endpoint
+      const playlistTracks = await playlistStorage.getPlaylistTracks(playlistId);
       
       if (!playlistTracks || playlistTracks.length === 0) {
         return res.status(400).json({ 
@@ -4520,6 +4678,8 @@ Please create a playlist that captures the themes, mood, and energy of this news
       console.log(`Playlist created successfully on Songfuse account: ${spotifyPlaylist.id}`);
       
       // Add tracks to the playlist
+      console.log(`Processing ${tracks.length} tracks for playlist ${spotifyPlaylist.id}`);
+      
       const trackUris = tracks.map(track => {
         // Get Spotify ID from platformIds array
         const spotifyPlatformId = track.platformIds?.find(p => p.platform === 'spotify');
@@ -4529,11 +4689,21 @@ Please create a playlist that captures the themes, mood, and energy of this news
         }
         // Clean up ID to ensure proper format
         const cleanId = spotifyPlatformId.platformId.replace('spotify:track:', '');
-        return `spotify:track:${cleanId}`;
+        const uri = `spotify:track:${cleanId}`;
+        console.log(`Track: ${track.title} -> URI: ${uri}`);
+        return uri;
       }).filter(uri => uri !== null) as string[];
       
-      await spotify.addTracksToPlaylist(serviceAccessToken, spotifyPlaylist.id, trackUris);
-      console.log("Added tracks to Songfuse playlist");
+      console.log(`Generated ${trackUris.length} track URIs out of ${tracks.length} tracks`);
+      console.log('Track URIs:', trackUris.slice(0, 5), trackUris.length > 5 ? '...' : '');
+      
+      try {
+        await spotify.addTracksToPlaylist(serviceAccessToken, spotifyPlaylist.id, trackUris);
+        console.log(`Successfully added ${trackUris.length} tracks to Songfuse playlist ${spotifyPlaylist.id}`);
+      } catch (error) {
+        console.error('Error adding tracks to playlist:', error);
+        throw error;
+      }
 
       // Upload custom cover if provided
       if (playlist.coverImage || playlist.coverImageUrl) {

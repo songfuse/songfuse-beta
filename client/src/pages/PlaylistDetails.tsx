@@ -99,6 +99,37 @@ const PlaylistDetails = ({ id, slug }: PlaylistDetailsProps) => {
         return;
       }
       
+      // Add a longer delay to allow the V2 endpoint to complete its Spotify save
+      // This prevents duplicate saves when coming from PlaylistEditor
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // Re-check if playlist was saved to Spotify during the delay
+      // This handles the case where the V2 endpoint just saved it
+      const updatedPlaylist = await refetch();
+      if (updatedPlaylist.data?.spotifyId || updatedPlaylist.data?.spotifyUrl) {
+        console.log('Playlist was saved to Spotify by V2 endpoint during delay, skipping auto-save');
+        return;
+      }
+      
+      // Additional check: if we're coming from PlaylistEditor, skip auto-save entirely
+      // This is a more reliable way to prevent duplicates
+      const referrer = document.referrer;
+      const urlParams = new URLSearchParams(window.location.search);
+      const justCreated = urlParams.get('justCreated') === 'true';
+      
+      if (referrer && referrer.includes('playlist-editor') || justCreated) {
+        console.log('Playlist was created in PlaylistEditor, skipping auto-save to prevent duplicates');
+        
+        // Clean up the URL parameter to keep the URL clean
+        if (justCreated) {
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('justCreated');
+          window.history.replaceState({}, '', newUrl.toString());
+        }
+        
+        return;
+      }
+      
       console.log('Auto-saving playlist to Spotify:', playlist.title, `(${playlist.tracks.length} tracks)`);
       
       try {
@@ -112,19 +143,21 @@ const PlaylistDetails = ({ id, slug }: PlaylistDetailsProps) => {
           const result = await response.json();
           console.log('Auto-save response:', result);
           
-          // Only show toast and refresh if it was actually saved (not already saved)
-          if (!result.alreadySaved) {
+          // Only show toast and refresh if it was actually saved (not already saved or in progress)
+          if (!result.alreadySaved && !result.inProgress) {
             // Refresh the playlist data to show the new Spotify info
             queryClient.invalidateQueries({ queryKey: [`/api/playlist/${id}`, user?.id] });
             refetch();
             
-            // Force a page refresh to ensure the UI updates properly and hides the "Save to Spotify" button
+            // Force a page refresh to ensure the UI updates properly and shows the Spotify links
             window.location.reload();
             
             toast({
               title: "Playlist saved to Spotify",
               description: "Your playlist has been automatically saved to Spotify and is ready to share!",
             });
+          } else if (result.inProgress) {
+            console.log('Playlist is currently being saved to Spotify by another process');
           }
         } else {
           console.error('Failed to auto-save to Spotify:', await response.text());

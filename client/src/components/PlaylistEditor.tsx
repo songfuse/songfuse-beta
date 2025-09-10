@@ -341,8 +341,8 @@ const PlaylistEditor = ({
           variant: "default"
         });
         
-        // Redirect user to the playlist permalink
-        setLocation(`/playlist/${playlistId}`);
+        // Redirect user to the playlist permalink with a flag to skip auto-save
+        setLocation(`/playlist/${playlistId}?justCreated=true`);
         
         // Reset the form and collapse the modal
         resetPlaylistState();

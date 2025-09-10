@@ -1,0 +1,1 @@
+ALTER TABLE "playlists" ADD COLUMN "spotify_saving_in_progress" boolean DEFAULT false NOT NULL;

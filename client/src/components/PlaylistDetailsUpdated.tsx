@@ -50,7 +50,6 @@ const PlaylistDetailsUpdated = ({
   const [showShareModal, setShowShareModal] = useState(false);
   const [showSmartLinkModal, setShowSmartLinkModal] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isTogglingVisibility, setIsTogglingVisibility] = useState(false);
   const [currentVisibility, setCurrentVisibility] = useState(isPublic);
   const [imageVersion, setImageVersion] = useState(Date.now()); // Add version for cache busting
@@ -578,168 +577,6 @@ const PlaylistDetailsUpdated = ({
     }
   };
 
-  const handleSaveToSpotify = async () => {
-    if (tracks.length === 0) {
-      toast({
-        title: "No tracks",
-        description: "Your playlist needs at least one track.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      
-      // Check if user is authenticated
-      if (!user?.id) {
-        toast({
-          title: "Authentication Error",
-          description: "You need to be logged in to save playlists to Spotify.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Try the direct export endpoint first
-      const response = await apiRequest(
-        'POST', 
-        `/api/playlist/${playlistId}/direct-export-to-spotify`, 
-        { userId: user.id }
-      );
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to export to Spotify');
-      }
-      
-      const result = await response.json();
-      
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: [`/api/playlist/${playlistId}`] });
-      
-      // Trigger sidebar refresh to update Latest Playlists
-      triggerSidebarRefresh();
-      
-      // Show success message
-      toast({
-        title: "Exported to Spotify",
-        description: "Your playlist has been successfully saved to Spotify.",
-      });
-      
-      if (result.spotifyUrl) {
-        // Add an option to open the playlist directly
-        toast({
-          title: "Spotify Playlist Created",
-          description: 
-            <div className="flex flex-col gap-2">
-              <p>Your playlist is now available on Spotify!</p>
-              <a 
-                href={result.spotifyUrl}
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="bg-[#1DB954] hover:bg-[#1DB954]/90 text-white p-2 rounded text-center text-sm"
-              >
-                Open in Spotify
-              </a>
-            </div>,
-          duration: 5000,
-        });
-      }
-      
-      // Update the UI without a full page reload by setting the local state
-      if (result.spotifyUrl) {
-        // Update the local state directly
-        setLocalSpotifyUrl(result.spotifyUrl);
-        
-        // Check if we have a cover image URL from Spotify (mosaic cover)
-        if (result.coverImageUrl && !coverImage) {
-          console.log('Using Spotify mosaic cover image:', result.coverImageUrl);
-          setLocalCoverImage(result.coverImageUrl);
-          setImageVersion(Date.now()); // Force a cache-bust with a new timestamp
-        }
-        
-        // Update any other state needed
-        setTimeout(() => {
-          // Manually re-render the UI to reflect the updated state
-          window.dispatchEvent(new CustomEvent('playlist-updated', { 
-            detail: { 
-              playlistId, 
-              spotifyUrl: result.spotifyUrl,
-              coverImageUrl: result.coverImageUrl
-            } 
-          }));
-        }, 500);
-      }
-      
-    } catch (error: any) {
-      console.error('Failed to save to Spotify:', error);
-      
-      try {
-        // Try to parse the error response
-        let errorData = null;
-        
-        // Handle fetch Response objects
-        if (error?.response instanceof Response) {
-          try {
-            errorData = await error.response.clone().json();
-          } catch (e) {
-            /* Ignore - will fall back to text or default message */
-          }
-        }
-        // Handle string responses
-        else if (typeof error === 'string') {
-          try {
-            errorData = JSON.parse(error);
-          } catch (e) {
-            /* Not valid JSON */
-          }
-        }
-        // Handle error objects with response data
-        else if (error?.json) {
-          try {
-            errorData = await error.json();
-          } catch (e) {
-            /* Ignore - will fall back to message or default */
-          }
-        }
-        
-        // Check if it's a rate limit error (status code, error text, or message content)
-        if (errorData?.error === 'Rate limit exceeded' || 
-            error?.status === 429 || 
-            error?.response?.status === 429 ||
-            (error?.message && (error.message.includes('rate limit') || error.message.includes('429'))) ||
-            (errorData?.details && errorData.details.includes('rate limit'))) {
-          
-          // Get the specific details with retry information
-          const details = errorData?.details || 'Spotify API rate limit reached. Please try again later.';
-          
-          toast({
-            title: "Spotify Rate Limit Reached",
-            description: details,
-            variant: "destructive",
-            duration: 10000 // Show for longer (10 seconds)
-          });
-        } else {
-          // Regular error handling for non-rate-limit errors
-          toast({
-            title: "Export Failed",
-            description: errorData?.details || error?.message || "Could not export playlist to Spotify. Please try again.",
-            variant: "destructive"
-          });
-        }
-      } catch (parseError) {
-        // Fallback error message if we can't parse the response
-        toast({
-          title: "Export Failed",
-          description: error?.message || "Could not export playlist to Spotify. Please try again.",
-          variant: "destructive"
-        });
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   return (
     <>
@@ -864,21 +701,9 @@ const PlaylistDetailsUpdated = ({
                 </>
               ) : (
                 <>
-                  <Button 
-                    className="w-full bg-[#1DB954] hover:bg-[#1DB954]/80 text-white font-semibold h-12 px-10 text-sm"
-                    onClick={handleSaveToSpotify}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? (
-                      <span className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Saving...
-                      </span>
-                    ) : "Save to Spotify"}
-                  </Button>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    This playlist is saved in Songfuse and will be automatically saved to Spotify
+                  </p>
                 </>
               )}
             </div>

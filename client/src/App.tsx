@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -39,7 +39,7 @@ import SmartLinkEditor from "@/pages/SmartLinkEditor";
 import SmartLinkPublic from "@/pages/SmartLinkPublic";
 import JsonTester from "@/pages/JsonTester";
 import { useAuth, AuthProvider } from "./contexts/AuthContext";
-import { PlaylistCreatorProvider } from "./contexts/PlaylistCreatorContext";
+import { PlaylistCreatorProvider, usePlaylistCreator } from "./contexts/PlaylistCreatorContext";
 import { PlaylistUpdateProvider } from "./contexts/PlaylistUpdateContext";
 import FloatingPlaylistCreator from "./components/FloatingPlaylistCreator";
 import Header from "./components/Header";
@@ -95,6 +95,32 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
   }
   
   return <Component {...rest} />;
+}
+
+// Component to handle background blur when playlist creator is open
+function MainContent() {
+  const { isOpen, isMinimized } = usePlaylistCreator();
+  const isCreatorOpen = isOpen && !isMinimized;
+  
+  // Prevent body scrolling when panel is open
+  useEffect(() => {
+    if (isCreatorOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isCreatorOpen]);
+  
+  return (
+    <div className={`transition-all duration-300 ease-in-out ${isCreatorOpen ? 'blur-sm pointer-events-none overflow-hidden' : ''}`}>
+      <Router />
+    </div>
+  );
 }
 
 function Router() {
@@ -237,7 +263,7 @@ function App() {
             <TooltipProvider>
               <Toaster />
               <div className="min-h-screen flex flex-col bg-[#121212] text-white">
-                <Router />
+                <MainContent />
                 <FloatingPlaylistCreator />
               </div>
             </TooltipProvider>

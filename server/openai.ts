@@ -747,39 +747,48 @@ function generateCharacterAndTopicElements(
   if (Math.random() < 0.6) {
     const randomPerson = diversePeople[Math.floor(Math.random() * diversePeople.length)];
     const randomArchetype = selectedCharacters[Math.floor(Math.random() * selectedCharacters.length)];
-    combinedCharacters.push(`${randomPerson} as ${randomArchetype}`);
+    combinedCharacters.push(`${randomPerson} as ${randomArchetype} rendered in hyper-realistic, photorealistic detail`);
   }
   
-  // 40% chance to use just character archetypes (for variety)
-  combinedCharacters.push(...selectedCharacters);
+  // 40% chance to use just character archetypes (for variety) - add hyper-realistic instructions
+  const hyperRealisticArchetypes = selectedCharacters.map(archetype => 
+    `${archetype} rendered in hyper-realistic, photorealistic detail`
+  );
+  combinedCharacters.push(...hyperRealisticArchetypes);
   
   // Add topic-based characters if title contains relevant keywords
   const topicKeywords = Object.keys(topicCharacters);
   for (const keyword of topicKeywords) {
     if (titleWords.some(word => word.includes(keyword)) || 
         trackArtists.some(artist => artist && artist.includes(keyword))) {
-      combinedCharacters.push(...topicCharacters[keyword]);
+      const hyperRealisticTopicCharacters = topicCharacters[keyword].map(character => 
+        `${character} rendered in hyper-realistic, photorealistic detail`
+      );
+      combinedCharacters.push(...hyperRealisticTopicCharacters);
     }
   }
 
   // Add cultural diversity (20% chance)
   if (Math.random() < 0.2) {
-    combinedCharacters.push(...culturalCharacters);
+    const hyperRealisticCulturalCharacters = culturalCharacters.map(character => 
+      `${character} rendered in hyper-realistic, photorealistic detail`
+    );
+    combinedCharacters.push(...hyperRealisticCulturalCharacters);
   }
 
   // Select a random character from combined options
   const selectedCharacter = combinedCharacters[Math.floor(Math.random() * combinedCharacters.length)];
 
-  // Character styling options
+  // Character styling options - hyper-realistic people with artistic backgrounds
   const characterStyles = [
-    'in artistic illustration style',
-    'with stylized, modern art approach',
-    'in contemporary digital art style',
-    'with vintage poster art styling',
-    'in abstract artistic representation',
-    'with watercolor painting effect',
-    'in minimalist line art style',
-    'with collage and mixed media approach'
+    'as hyper-realistic, photorealistic people with incredible detail and lifelike appearance, rendered in ultra-high resolution with perfect skin texture, realistic hair, and natural lighting, contrasting against an artistic illustration background',
+    'as ultra-realistic, detailed human figures with photorealistic quality, perfect facial features, natural skin tones, and lifelike expressions, set against a stylized artistic background',
+    'as hyper-realistic people with incredible detail, natural lighting, realistic textures, and photorealistic quality, creating a striking contrast with the artistic, stylized background elements',
+    'as photorealistic human figures with ultra-detailed features, natural skin texture, realistic hair, and perfect lighting, juxtaposed against an abstract artistic background',
+    'as hyper-realistic, lifelike people with incredible detail and natural appearance, rendered in photorealistic style, contrasting beautifully with the stylized artistic environment',
+    'as ultra-realistic human figures with perfect detail, natural skin tones, realistic hair, and photorealistic quality, set against a contemporary artistic background',
+    'as hyper-realistic people with incredible detail, natural lighting, and photorealistic rendering, creating an amazing contrast with the artistic, stylized background',
+    'as photorealistic human figures with ultra-detailed features, realistic textures, and natural appearance, juxtaposed against a creative artistic background'
   ];
 
   // Environmental and situational diversity
@@ -800,10 +809,13 @@ function generateCharacterAndTopicElements(
   // 50% chance to include environment
   const includeEnvironment = Math.random() < 0.5;
   
+  // Add specific instructions for hyper-realistic people
+  const hyperRealisticInstructions = "Ensure the people are rendered with photorealistic detail, natural skin texture, realistic hair, perfect lighting, and lifelike expressions. The people should look like high-quality photographs while the background remains artistic and stylized.";
+  
   if (includeEnvironment) {
-    return `Include ${selectedCharacter} ${selectedStyle} ${selectedEnvironment}.`;
+    return `Include ${selectedCharacter} ${selectedStyle} ${selectedEnvironment}. ${hyperRealisticInstructions}`;
   } else {
-    return `Include ${selectedCharacter} ${selectedStyle}.`;
+    return `Include ${selectedCharacter} ${selectedStyle}. ${hyperRealisticInstructions}`;
   }
 }
 
@@ -1077,7 +1089,7 @@ function generatePlaylistCoverPrompt(
   }
   
   // Build the dynamic prompt with enhanced diversity including characters
-  let basePrompt = `A highly stylized, diverse artistic illustration that captures the essence of the music. Dynamic and visually striking, inspired by contemporary and traditional art movements from around the world. Include the playlist title and description in bold, artistic typography integrated into the design.`;
+  let basePrompt = `A highly stylized, diverse artistic illustration that captures the essence of the music. Dynamic and visually striking, inspired by contemporary and traditional art movements from around the world. The background and design elements should be artistic and stylized, while any people in the image should be rendered in hyper-realistic, photorealistic detail to create an amazing contrast. Include the playlist title and description in bold, artistic typography integrated into the design.`;
   
   // Add playlist context
   if (title && title !== 'Untitled Playlist') {
@@ -1106,7 +1118,10 @@ function generatePlaylistCoverPrompt(
     "blend modern digital art with traditional techniques",
     "create a unique fusion of contemporary and classic styles",
     "draw inspiration from global artistic movements",
-    "combine unexpected artistic elements for visual interest"
+    "combine unexpected artistic elements for visual interest",
+    "create a stunning contrast between hyper-realistic people and artistic background elements",
+    "blend photorealistic human figures with stylized artistic environments for maximum visual impact",
+    "juxtapose ultra-realistic people against abstract or stylized backgrounds to create an amazing effect"
   ];
   const randomHint = diversityHints[Math.floor(Math.random() * diversityHints.length)];
   basePrompt += ` ${randomHint}.`;

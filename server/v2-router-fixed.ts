@@ -51,9 +51,14 @@ v2Router.delete('/playlist/:id', async (req: Request, res: Response) => {
   try {
     console.log('V2 Router: handling delete playlist request');
     const playlistId = parseInt(req.params.id);
+    const userId = req.query.userId as string;
     
     if (!playlistId) {
       return res.status(400).json({ error: 'Playlist ID is required' });
+    }
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
     }
     
     // Get the playlist first to check ownership
@@ -61,6 +66,11 @@ v2Router.delete('/playlist/:id', async (req: Request, res: Response) => {
     
     if (!playlist) {
       return res.status(404).json({ error: 'Playlist not found' });
+    }
+    
+    // Check if the user owns the playlist
+    if (playlist.userId !== parseInt(userId)) {
+      return res.status(403).json({ error: 'Unauthorized - you can only delete your own playlists' });
     }
     
     // Delete the playlist

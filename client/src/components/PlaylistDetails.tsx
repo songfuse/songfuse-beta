@@ -41,7 +41,6 @@ const PlaylistDetails = ({
 }: PlaylistDetailsProps) => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -201,55 +200,6 @@ const PlaylistDetails = ({
     }
   };
 
-  const handleSaveToSpotify = async () => {
-    if (tracks.length === 0) {
-      toast({
-        title: "No tracks",
-        description: "Your playlist needs at least one track.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      
-      // Call the server to export the playlist to Spotify
-      const userId = localStorage.getItem('userId');
-      const response = await apiRequest('POST', `/api/playlist/${playlistId}/export?userId=${userId}`, {});
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to export to Spotify');
-      }
-      
-      const result = await response.json();
-      
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: [`/api/playlist/${playlistId}`] });
-      
-      // Show success message
-      toast({
-        title: "Exported to Spotify",
-        description: "Your playlist has been successfully saved to Spotify.",
-      });
-      
-      // Reload the page to show the updated UI with Spotify links
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-      
-    } catch (error: any) {
-      console.error('Failed to save to Spotify:', error);
-      toast({
-        title: "Export Failed",
-        description: error?.message || "Could not export playlist to Spotify. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   return (
     <>
@@ -306,23 +256,8 @@ const PlaylistDetails = ({
                 </>
               ) : (
                 <>
-                  <Button 
-                    className="w-full bg-[#1DB954] hover:bg-[#1DB954]/80 text-white font-semibold h-12 px-10 text-sm"
-                    onClick={handleSaveToSpotify}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? (
-                      <span className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Saving...
-                      </span>
-                    ) : "Save to Spotify"}
-                  </Button>
                   <p className="text-xs text-muted-foreground text-center mt-2">
-                    This playlist is saved in Songfuse
+                    This playlist is saved in Songfuse and will be automatically saved to Spotify
                   </p>
 
                   {/* View cover button - only show if there's an AI-generated cover */}

@@ -92,10 +92,9 @@ export async function imageUrlToBase64(url: string): Promise<string> {
       // For successful uploads, we need to keep the image extremely small
       
       // EXTREME OPTIMIZATION: Based on the Spotify API 502 errors
-      // Resize to exactly 250x250 - much smaller than Spotify's recommended size
-      // but increases chances of successful upload without 502 errors
+      // Resize to 640x640 (Spotify requires minimum 640x640 pixels)
       let processedBuffer = await sharp(originalBuffer)
-        .resize(250, 250, {
+        .resize(640, 640, {
           fit: 'cover',
           position: 'center'
         })
@@ -110,24 +109,24 @@ export async function imageUrlToBase64(url: string): Promise<string> {
         })
         .toBuffer();
       
-      console.log("Initial processing result (250x250, 40% quality):", processedBuffer.length, "bytes");
+      console.log("Initial processing result (640x640, 40% quality):", processedBuffer.length, "bytes");
       
       // Spotify's API requires images under ~200KB, aim for much lower to avoid 502 errors
-      // Target 30KB for maximum compatibility with Spotify's strict limits
-      if (processedBuffer.length > 30000) { // 30KB
+      // Target 100KB for maximum compatibility with Spotify's strict limits
+      if (processedBuffer.length > 100000) { // 100KB
         let quality = 30;
-        let size = 250;
+        let size = 640;
         
         // Try progressively more aggressive optimizations
-        while (processedBuffer.length > 30000 && (quality > 10 || size > 150)) {
+        while (processedBuffer.length > 100000 && (quality > 10 || size > 640)) {
           // First try reducing quality
           if (quality > 10) {
             console.log(`Image still too large (${processedBuffer.length} bytes), reducing quality to ${quality}%`);
             quality -= 5;
           } 
-          // Then try reducing size if quality reduction isn't enough
-          else if (size > 150) {
-            size -= 25;
+          // Then try reducing size if quality reduction isn't enough (but keep minimum 640x640)
+          else if (size > 640) {
+            size -= 50;
             quality = 20; // Reset quality a bit when dropping size
             console.log(`Image still too large, reducing size to ${size}x${size} with quality ${quality}%`);
           }
