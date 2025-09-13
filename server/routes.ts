@@ -359,13 +359,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cacheBuster = Date.now();
       console.log(`Using cache buster: ${cacheBuster} to ensure fresh results`);
       
-      let initialTracks = await db.findTracksByTitleArtist(
+      let trackResult = await db.findTracksByTitleArtist(
         songSuggestions,
         50,
         avoidExplicit
       );
       
+      let initialTracks = trackResult.tracks;
+      
       console.log(`Found ${initialTracks.length} exact matches for AI-recommended songs`);
+      console.log(`Track result object:`, {
+        tracksLength: trackResult.tracks.length,
+        dbTracksLength: trackResult.dbTracks.length,
+        firstTrack: trackResult.tracks[0] ? { name: trackResult.tracks[0].name, id: trackResult.tracks[0].id } : null
+      });
       
       // If we don't have enough tracks, do a more thorough search for each AI suggestion
       if (initialTracks.length < 24) {
@@ -404,20 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        console.log(`Found ${additionalTracks.length} additional tracks from general search`);
-        
-        // Get IDs of tracks we already have to avoid duplicates
-        const existingIds = new Set(initialTracks.map(t => t.id));
-        
-        // Add only tracks we don't already have
-        for (const track of additionalTracks) {
-          if (!existingIds.has(track.id)) {
-            initialTracks.push(track);
-            existingIds.add(track.id);
-          }
-        }
-        
-        console.log(`After de-duplication, we have ${initialTracks.length} tracks from database`);
+        console.log(`After additional search, we have ${initialTracks.length} tracks from database`);
       }
       
       // Always try to get recommendations from Spotify for better results
@@ -686,6 +680,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Send response with properly stored cover image (or empty string if failed)
+      console.log(`FINAL RESPONSE: Sending ${tracks.length} tracks to client`);
+      console.log(`First track:`, tracks[0] ? { name: tracks[0].name, id: tracks[0].id } : 'No tracks');
+      
       res.json({
         message: aiResponseText,
         playlist: {

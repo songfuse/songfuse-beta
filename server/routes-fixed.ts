@@ -1,7 +1,4 @@
-// Define a type for our global namespace
-declare global {
-  var recentlyUsedTracks: Set<string>;
-}
+// Global variables for track tracking
 
 // Ensure environment variables are loaded
 import 'dotenv/config';
@@ -2734,6 +2731,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Return the playlist WITHOUT the cover image
       // The client will request a cover image separately to improve perceived performance
+      console.log(`FINAL RESPONSE DEBUG: Sending ${tracks.length} tracks to client`);
+      console.log(`First track:`, tracks[0] ? { name: tracks[0].name, id: tracks[0].id } : 'No tracks');
+      console.log(`usedMcpMethod:`, usedMcpMethod);
+      console.log(`initialTracks.length:`, initialTracks ? initialTracks.length : 'initialTracks not defined');
+      
       res.json({
         message: aiResponseText,
         usedMcp: usedMcpMethod, // Add flag to indicate if MCP was used
